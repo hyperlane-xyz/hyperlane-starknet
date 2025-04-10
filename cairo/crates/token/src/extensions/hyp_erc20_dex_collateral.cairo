@@ -25,7 +25,7 @@ mod HypErc20DexCollateral {
     };
 
     // selector for "deposit_on_behalf_of" function in the DEX contract
-    const DEX_DEPOSIT_SELECTOR: felt252 = 152884417735717128974538630286950396387019428546378603946454937413393931990;
+    const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 = 152884417735717128974538630286950396387019428546378603946454937413393931990;
     
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
@@ -167,7 +167,7 @@ mod HypErc20DexCollateral {
 
             let dex_call_result = call_contract_syscall(
                 address: dex_address,
-                entry_point_selector: DEX_DEPOSIT_SELECTOR,
+                entry_point_selector: DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR,
                 calldata: calldata.span(),
             );
             assert(dex_call_result.is_ok(), 'DEPOSIT_ON_BEHALF_OF_FAILED');

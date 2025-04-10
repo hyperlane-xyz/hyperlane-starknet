@@ -1,7 +1,7 @@
-use crate::libs::message::Message;
-use starknet::ContractAddress;
 use alexandria_bytes::Bytes;
 use core::serde::Serde;
+use crate::libs::message::Message;
+use starknet::ContractAddress;
 
 pub impl U256TryIntoContractAddress of TryInto<u256, ContractAddress> {
     fn try_into(self: u256) -> Option<ContractAddress> {
@@ -12,7 +12,6 @@ pub impl U256TryIntoContractAddress of TryInto<u256, ContractAddress> {
         }
     }
 }
-
 
 
 pub impl SerdeSnapshotBytes of Serde<@Bytes> {

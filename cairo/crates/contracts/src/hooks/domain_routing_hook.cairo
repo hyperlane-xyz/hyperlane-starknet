@@ -144,9 +144,7 @@ pub mod domain_routing_hook {
                         caller, configured_hook_address, required_amount,
                     );
             };
-            self
-                ._get_configured_hook(_message)
-                .post_dispatch(_metadata, _message, required_amount);
+            self._get_configured_hook(_message).post_dispatch(_metadata, _message, required_amount);
         }
 
         /// Quotes the dispatch fee for a given message. The hook to be selected will be based on

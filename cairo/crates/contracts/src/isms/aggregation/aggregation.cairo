@@ -7,7 +7,7 @@ pub mod aggregation {
     };
     use contracts::libs::aggregation_ism_metadata::aggregation_ism_metadata::AggregationIsmMetadata;
     use contracts::libs::message::Message;
-    use contracts::utils::utils::{SerdeSnapshotMessage, SerdeSnapshotBytes};
+    use contracts::utils::utils::{SerdeSnapshotBytes, SerdeSnapshotMessage};
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
     use starknet::storage::{

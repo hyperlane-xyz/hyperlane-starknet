@@ -1,9 +1,7 @@
 #[starknet::contract]
 pub mod hook {
     use alexandria_bytes::{Bytes, BytesStore};
-    use contracts::interfaces::{
-        IPostDispatchHook, Types,
-    };
+    use contracts::interfaces::{IPostDispatchHook, Types};
     use contracts::libs::message::Message;
     use contracts::utils::utils::{SerdeSnapshotBytes, SerdeSnapshotMessage};
 

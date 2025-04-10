@@ -1,8 +1,8 @@
 use alexandria_bytes::Bytes;
 use contracts::hooks::merkle_tree_hook::merkle_tree_hook::Tree;
 use contracts::libs::message::Message;
-use core::array::ArrayTrait;
 use contracts::utils::utils::{SerdeSnapshotBytes, SerdeSnapshotMessage};
+use core::array::ArrayTrait;
 use starknet::ContractAddress;
 use starknet::EthAddress;
 

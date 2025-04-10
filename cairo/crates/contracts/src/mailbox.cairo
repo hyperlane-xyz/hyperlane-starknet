@@ -7,7 +7,9 @@ pub mod mailbox {
         IPostDispatchHookDispatcher, IPostDispatchHookDispatcherTrait,
     };
     use contracts::libs::message::{HYPERLANE_VERSION, Message, MessageTrait};
-    use contracts::utils::utils::{U256TryIntoContractAddress, SerdeSnapshotBytes, SerdeSnapshotMessage};
+    use contracts::utils::utils::{
+        SerdeSnapshotBytes, SerdeSnapshotMessage, U256TryIntoContractAddress,
+    };
     use core::starknet::event::EventEmitter;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
@@ -304,14 +306,12 @@ pub mod mailbox {
             let required_hook = IPostDispatchHookDispatcher {
                 contract_address: required_hook_address,
             };
-            let mut required_fee = required_hook
-                .quote_dispatch(@hook_metadata, @message);
+            let mut required_fee = required_hook.quote_dispatch(@hook_metadata, @message);
 
             let hook_dispatcher = IPostDispatchHookDispatcher { contract_address: hook };
-            let default_fee = hook_dispatcher
-                .quote_dispatch(@hook_metadata, @message);
+            let default_fee = hook_dispatcher.quote_dispatch(@hook_metadata, @message);
 
-        assert(_fee_amount >= required_fee + default_fee, Errors::NOT_ENOUGH_FEE_PROVIDED);
+            assert(_fee_amount >= required_fee + default_fee, Errors::NOT_ENOUGH_FEE_PROVIDED);
 
             let caller_address = get_caller_address();
             let contract_address = get_contract_address();

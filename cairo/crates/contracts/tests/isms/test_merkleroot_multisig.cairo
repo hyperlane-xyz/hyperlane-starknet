@@ -70,13 +70,8 @@ fn test_merkleroot_ism_metadata() {
         MerkleRootIsmMetadata::origin_merkle_tree_hook(@metadata) == origin_merkle_tree_hook,
         'wrong merkle tree hook',
     );
-    assert(
-        MerkleRootIsmMetadata::message_index(@metadata) == message_index,
-        'wrong message_index',
-    );
-    assert(
-        MerkleRootIsmMetadata::signed_index(@metadata) == signed_index, 'wrong signed index',
-    );
+    assert(MerkleRootIsmMetadata::message_index(@metadata) == message_index, 'wrong message_index');
+    assert(MerkleRootIsmMetadata::signed_index(@metadata) == signed_index, 'wrong signed index');
     assert(
         MerkleRootIsmMetadata::signed_message_id(@metadata) == signed_message_id,
         'wrong signed_message_id',

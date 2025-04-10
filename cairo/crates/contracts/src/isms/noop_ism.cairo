@@ -3,7 +3,9 @@ pub mod noop_ism {
     use alexandria_bytes::Bytes;
     use contracts::interfaces::{IInterchainSecurityModule, ModuleType};
     use contracts::libs::message::Message;
-    use contracts::utils::utils::{U256TryIntoContractAddress, SerdeSnapshotBytes, SerdeSnapshotMessage};
+    use contracts::utils::utils::{
+        SerdeSnapshotBytes, SerdeSnapshotMessage, U256TryIntoContractAddress,
+    };
     #[storage]
     struct Storage {}
 

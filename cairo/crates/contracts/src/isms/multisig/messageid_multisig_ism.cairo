@@ -5,7 +5,9 @@ pub mod messageid_multisig_ism {
     use contracts::libs::checkpoint_lib::checkpoint_lib::CheckpointLib;
     use contracts::libs::message::{Message, MessageTrait};
     use contracts::libs::multisig::message_id_ism_metadata::message_id_ism_metadata::MessageIdIsmMetadata;
-    use contracts::utils::{keccak256::bool_is_eth_signature_valid, utils::{SerdeSnapshotBytes, SerdeSnapshotMessage}};
+    use contracts::utils::{
+        keccak256::bool_is_eth_signature_valid, utils::{SerdeSnapshotBytes, SerdeSnapshotMessage},
+    };
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
     use starknet::ContractAddress;
@@ -159,14 +161,16 @@ pub mod messageid_multisig_ism {
         ///
         /// u256 - The digest to be signed by validators
         fn digest(self: @ContractState, _metadata: @Bytes, _message: @Message) -> u256 {
-            let origin_merkle_tree_hook = MessageIdIsmMetadata::origin_merkle_tree_hook(
-                _metadata,
-            );
+            let origin_merkle_tree_hook = MessageIdIsmMetadata::origin_merkle_tree_hook(_metadata);
             let root = MessageIdIsmMetadata::root(_metadata);
             let index = MessageIdIsmMetadata::index(_metadata);
             let (format_message, _) = MessageTrait::format_message(_message.clone());
             CheckpointLib::digest(
-                *_message.origin, origin_merkle_tree_hook.into(), root.into(), index, format_message,
+                *_message.origin,
+                origin_merkle_tree_hook.into(),
+                root.into(),
+                index,
+                format_message,
             )
         }
 

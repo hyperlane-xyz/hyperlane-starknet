@@ -6,7 +6,10 @@ pub mod merkleroot_multisig_ism {
     use contracts::libs::checkpoint_lib::checkpoint_lib::CheckpointLib;
     use contracts::libs::message::{Message, MessageTrait};
     use contracts::libs::multisig::merkleroot_ism_metadata::merkleroot_ism_metadata::MerkleRootIsmMetadata;
-    use contracts::utils::{keccak256::{ByteData, HASH_SIZE, bool_is_eth_signature_valid}, utils::{SerdeSnapshotBytes, SerdeSnapshotMessage}};
+    use contracts::utils::{
+        keccak256::{ByteData, HASH_SIZE, bool_is_eth_signature_valid},
+        utils::{SerdeSnapshotBytes, SerdeSnapshotMessage},
+    };
     use openzeppelin::access::ownable::OwnableComponent;
     use starknet::ContractAddress;
     use starknet::EthAddress;
@@ -162,9 +165,7 @@ pub mod merkleroot_multisig_ism {
                 ) <= MerkleRootIsmMetadata::signed_index(_metadata),
                 Errors::INVALID_MERKLE_INDEX,
             );
-            let origin_merkle_tree_hook = MerkleRootIsmMetadata::origin_merkle_tree_hook(
-                _metadata,
-            );
+            let origin_merkle_tree_hook = MerkleRootIsmMetadata::origin_merkle_tree_hook(_metadata);
             let signed_index = MerkleRootIsmMetadata::signed_index(_metadata);
             let signed_message_id = MerkleRootIsmMetadata::signed_message_id(_metadata);
             let (id, _) = MessageTrait::format_message(_message.clone());

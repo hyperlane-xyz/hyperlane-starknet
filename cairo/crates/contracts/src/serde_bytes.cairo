@@ -6,7 +6,7 @@ impl SerdeBytes of Serde<Bytes> {
     fn serialize(self: @Bytes, ref output: Array<felt252>) {
         // Serialize length first
         Serde::<usize>::serialize(@self.len(), ref output);
-        
+
         // Serialize data
         let mut i: usize = 0;
         while i < self.len() {
@@ -18,7 +18,7 @@ impl SerdeBytes of Serde<Bytes> {
     fn deserialize(ref serialized: Span<felt252>) -> Option<Bytes> {
         // Deserialize length
         let len = Serde::<usize>::deserialize(ref serialized)?;
-        
+
         // Create bytes and append each byte
         let mut bytes = BytesTrait::new_empty();
         let mut i: usize = 0;
@@ -27,7 +27,7 @@ impl SerdeBytes of Serde<Bytes> {
             bytes.append_byte(byte);
             i += 1;
         }
-        
+
         Option::Some(bytes)
     }
 }
@@ -41,4 +41,4 @@ impl SerdeSnapshotBytes of Serde<@Bytes> {
     fn deserialize(ref serialized: Span<felt252>) -> Option<@Bytes> {
         Option::Some(@Serde::<Bytes>::deserialize(ref serialized)?)
     }
-} 
+}

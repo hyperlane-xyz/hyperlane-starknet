@@ -11,7 +11,10 @@ pub mod merkle_tree_hook {
     };
     use contracts::interfaces::{IMailboxClient, IMerkleTreeHook, IPostDispatchHook, Types};
     use contracts::libs::message::{Message, MessageTrait};
-    use contracts::utils::{keccak256::{ByteData, HASH_SIZE, compute_keccak, reverse_endianness}, utils::{SerdeSnapshotBytes, SerdeSnapshotMessage}};
+    use contracts::utils::{
+        keccak256::{ByteData, HASH_SIZE, compute_keccak, reverse_endianness},
+        utils::{SerdeSnapshotBytes, SerdeSnapshotMessage},
+    };
     use openzeppelin::access::ownable::OwnableComponent;
     use starknet::ContractAddress;
     use starknet::storage::{

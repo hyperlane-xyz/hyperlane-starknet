@@ -15,7 +15,6 @@ pub trait ITestPostDispatchHook<TContractState> {
 
 #[starknet::contract]
 pub mod TestPostDispatchHook {
-    use super::*;
     use alexandria_bytes::BytesTrait;
     use contracts::hooks::libs::standard_hook_metadata::standard_hook_metadata::{
         StandardHookMetadata, VARIANT,
@@ -25,6 +24,7 @@ pub mod TestPostDispatchHook {
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
+    use super::*;
     #[storage]
     struct Storage {
         fee: u256,

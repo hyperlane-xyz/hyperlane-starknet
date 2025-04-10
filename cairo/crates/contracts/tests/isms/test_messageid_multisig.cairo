@@ -15,9 +15,9 @@ use openzeppelin::access::ownable::OwnableComponent;
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use snforge_std::{CheatSpan, cheat_caller_address};
 use super::super::setup::{
-    DESTINATION_DOMAIN, LOCAL_DOMAIN, OWNER, VALIDATOR_ADDRESS_1,
-    VALIDATOR_ADDRESS_2, VALID_OWNER, VALID_RECIPIENT, build_fake_messageid_metadata,
-    build_messageid_metadata, get_message_and_signature, setup_messageid_multisig_ism,
+    DESTINATION_DOMAIN, LOCAL_DOMAIN, OWNER, VALIDATOR_ADDRESS_1, VALIDATOR_ADDRESS_2, VALID_OWNER,
+    VALID_RECIPIENT, build_fake_messageid_metadata, build_messageid_metadata,
+    get_message_and_signature, setup_messageid_multisig_ism,
 };
 
 

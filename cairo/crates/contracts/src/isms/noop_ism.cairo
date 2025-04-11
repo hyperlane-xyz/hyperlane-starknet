@@ -3,6 +3,9 @@ pub mod noop_ism {
     use alexandria_bytes::Bytes;
     use contracts::interfaces::{IInterchainSecurityModule, ModuleType};
     use contracts::libs::message::Message;
+    use contracts::utils::utils::{
+        SerdeSnapshotBytes, SerdeSnapshotMessage, U256TryIntoContractAddress,
+    };
     #[storage]
     struct Storage {}
 
@@ -24,7 +27,7 @@ pub mod noop_ism {
         /// # Returns
         ///
         /// boolean - wheter the verification succeed or not.
-        fn verify(self: @ContractState, _metadata: Bytes, _message: Message) -> bool {
+        fn verify(self: @ContractState, _metadata: @Bytes, _message: @Message) -> bool {
             true
         }
     }

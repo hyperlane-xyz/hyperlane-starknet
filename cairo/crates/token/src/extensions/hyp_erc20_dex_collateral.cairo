@@ -6,11 +6,12 @@ pub trait IHypErc20DexCollateral<TContractState> {
 
 #[starknet::contract]
 mod HypErc20DexCollateral {
-    use alexandria_bytes::{Bytes, BytesTrait};
-    use array::ArrayTrait;
+    use alexandria_bytes::Bytes;
+    use core::array::ArrayTrait;
     use contracts::client::gas_router_component::GasRouterComponent;
     use contracts::client::mailboxclient_component::MailboxclientComponent;
     use contracts::client::router_component::RouterComponent;
+    use contracts::utils::utils::U256TryIntoContractAddress;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin::upgrades::interface::IUpgradeable;
@@ -20,7 +21,7 @@ mod HypErc20DexCollateral {
         hyp_erc20_collateral_component::HypErc20CollateralComponent,
         token_router::{
             TokenRouterComponent, TokenRouterComponent::MessageRecipientInternalHookImpl,
-            TokenRouterComponent::{TokenRouterHooksTrait, TokenRouterTransferRemoteHookTrait},
+            TokenRouterComponent::{TokenRouterHooksTrait},
         },
     };
 
@@ -56,8 +57,6 @@ mod HypErc20DexCollateral {
     #[abi(embed_v0)]
     impl GasRouterImpl = GasRouterComponent::GasRouterImpl<ContractState>;
     impl GasRouterInternalImpl = GasRouterComponent::GasRouterInternalImpl<ContractState>;
-    #[abi(embed_v0)]
-    impl TokenRouterImpl = TokenRouterComponent::TokenRouterImpl<ContractState>;
     // HypERC20Collateral
     #[abi(embed_v0)]
     impl HypErc20CollateralImpl =
@@ -170,22 +169,23 @@ mod HypErc20DexCollateral {
                 entry_point_selector: DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR,
                 calldata: calldata.span(),
             );
-            assert(dex_call_result.is_ok(), 'DEPOSIT_ON_BEHALF_OF_FAILED');
+            assert(dex_call_result.is_ok(), 'DEPOSIT_FAILED');
 
-            let on_receive_success = Serde::<bool>::deserialize(ref dex_call_result.unwrap())
+            let mut dex_call_result_unwrapped = dex_call_result.unwrap();
+            let dex_call_success = Serde::<bool>::deserialize(ref dex_call_result_unwrapped)
                 .unwrap();
-            assert(on_receive_success, 'DEPOSIT_REJECTED');
+            assert(dex_call_success, 'DEPOSIT_REJECTED');
 
             contract_state.emit(DexDeposit {
                 token: token_address,
                 recipient,
-                amount,
+                amount: amount_or_id,
             });
         }
     }
 
     #[abi(embed_v0)]
-    impl HypErc20DexCollateralImpl of IHypErc20DexCollateral<ContractState> {
+    impl HypErc20DexCollateralImpl of super::IHypErc20DexCollateral<ContractState> {
         fn get_dex(self: @ContractState) -> starknet::ContractAddress {
             self.dex.read()
         }

@@ -6,6 +6,7 @@ pub mod hyp_erc20 {
     pub mod hyp_fiat_token_test;
     pub mod hyp_native_test;
     pub mod hyp_xerc20_test;
+    pub mod hyp_erc20_dex_collateral_test;
 }
 pub mod hyp_erc721 {
     pub mod common;

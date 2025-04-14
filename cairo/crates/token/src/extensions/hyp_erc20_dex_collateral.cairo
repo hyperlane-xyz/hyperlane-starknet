@@ -65,6 +65,9 @@ mod HypErc20DexCollateral {
         HypErc20CollateralComponent::HypErc20CollateralInternalImpl<ContractState>;
     // Upgradeable
     impl UpgradeableInternalImpl = UpgradeableComponent::InternalImpl<ContractState>;
+    // TokenRouter
+    #[abi(embed_v0)]
+    impl TokenRouterImpl = TokenRouterComponent::TokenRouterImpl<ContractState>;
 
     #[storage]
     struct Storage {
@@ -183,6 +186,8 @@ mod HypErc20DexCollateral {
             });
         }
     }
+
+    
 
     #[abi(embed_v0)]
     impl HypErc20DexCollateralImpl of super::IHypErc20DexCollateral<ContractState> {

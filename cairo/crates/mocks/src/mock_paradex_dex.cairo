@@ -40,11 +40,13 @@ mod MockParadexDex {
     fn constructor(ref self: ContractState) {
     }
 
-    fn set_hyperlane_token(ref self: ContractState, token_address: ContractAddress) {
-        self.hyperlane_token_address.write(token_address);
-    }
 
+    #[abi(embed_v0)]
     impl IMockParadexDexImpl of super::IMockParadexDex<ContractState> {
+        fn set_hyperlane_token(ref self: ContractState, token_address: ContractAddress) {
+            self.hyperlane_token_address.write(token_address);
+        }
+        
         fn deposit_on_behalf_of(ref self: ContractState, recipient: ContractAddress, token_address: ContractAddress, amount: felt252) -> felt252 {
             // check if the sender is the hyperlane token address
             assert(

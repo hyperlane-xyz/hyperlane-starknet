@@ -22,6 +22,7 @@ mod HypErc20DexCollateral {
         token_router::{
             TokenRouterComponent, TokenRouterComponent::MessageRecipientInternalHookImpl,
             TokenRouterComponent::{TokenRouterHooksTrait},
+            TokenRouterTransferRemoteHookDefaultImpl
         },
     };
 

@@ -57,10 +57,8 @@ fn setup_dex_collateral() -> (Setup, IMockParadexDexDispatcher, IHypERC20TestDis
     remote_dex_collateral.enroll_remote_router(ORIGIN, local_token_address.into());
 
     // enroll local router
-    cheat_caller_address(
-        remote_dex_collateral.contract_address, ALICE().try_into().unwrap(), CheatSpan::TargetCalls(1),
-    );
-    remote_dex_collateral.enroll_remote_router(DESTINATION, local_token_address.into());
+    let remote_token_address: felt252 = remote_dex_collateral.contract_address.into();
+    setup.local_token.enroll_remote_router(DESTINATION, remote_token_address.into());
 
     setup.primary_token.transfer(ALICE(), 1000 * E18);
     
@@ -83,11 +81,12 @@ fn perform_remote_transfer_dex(
         (*setup.primary_token).approve(*collateral.contract_address, amount);
     }
     
-    println!("collateral.contract_address: {:?}", collateral.contract_address);
+
     // Remote transfer
     cheat_caller_address(*collateral.contract_address, ALICE(), CheatSpan::TargetCalls(1));
     let bob_felt: felt252 = BOB().into();
     let bob_address: u256 = bob_felt.into();
+    println!("collateral.contract_address: {:?} {:?}", collateral.contract_address, bob_address);
     (*collateral)
         .transfer_remote(DESTINATION, bob_address, amount, msg_value, Option::None, Option::None);
 

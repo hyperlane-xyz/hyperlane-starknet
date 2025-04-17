@@ -7,11 +7,11 @@ pub trait IHypErc20DexCollateral<TContractState> {
 #[starknet::contract]
 mod HypErc20DexCollateral {
     use alexandria_bytes::Bytes;
-    use core::array::ArrayTrait;
     use contracts::client::gas_router_component::GasRouterComponent;
     use contracts::client::mailboxclient_component::MailboxclientComponent;
     use contracts::client::router_component::RouterComponent;
     use contracts::utils::utils::U256TryIntoContractAddress;
+    use core::array::ArrayTrait;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin::upgrades::interface::IUpgradeable;
@@ -21,14 +21,14 @@ mod HypErc20DexCollateral {
         hyp_erc20_collateral_component::HypErc20CollateralComponent,
         token_router::{
             TokenRouterComponent, TokenRouterComponent::MessageRecipientInternalHookImpl,
-            TokenRouterComponent::{TokenRouterHooksTrait},
-            TokenRouterTransferRemoteHookDefaultImpl
+            TokenRouterComponent::{TokenRouterHooksTrait}, TokenRouterTransferRemoteHookDefaultImpl,
         },
     };
 
     // selector for "deposit_on_behalf_of" function in the DEX contract
-    const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 = 152884417735717128974538630286950396387019428546378603946454937413393931990;
-    
+    const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 =
+        152884417735717128974538630286950396387019428546378603946454937413393931990;
+
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: MailboxclientComponent, storage: mailbox, event: MailBoxClientEvent);
@@ -165,8 +165,8 @@ mod HypErc20DexCollateral {
 
             let mut calldata = ArrayTrait::new();
             recipient.serialize(ref calldata); // the actual recipient of the deposit
-            token_address.serialize(ref calldata);  // depositing collateral token
-            amount.serialize(ref calldata);   
+            token_address.serialize(ref calldata); // depositing collateral token
+            amount.serialize(ref calldata);
 
             let dex_call_result = call_contract_syscall(
                 address: dex_address,
@@ -180,15 +180,11 @@ mod HypErc20DexCollateral {
                 .unwrap();
             assert(dex_call_success, 'DEPOSIT_REJECTED');
 
-            contract_state.emit(DexDeposit {
-                token: token_address,
-                recipient,
-                amount: amount_or_id,
-            });
+            contract_state
+                .emit(DexDeposit { token: token_address, recipient, amount: amount_or_id });
         }
     }
 
-    
 
     #[abi(embed_v0)]
     impl HypErc20DexCollateralImpl of super::IHypErc20DexCollateral<ContractState> {

@@ -167,7 +167,6 @@ fn test_aggregation_verify_e2e() {
     messageid_class.deploy_at(@parameters, specific_address);
 
     let messageid_ism = IInterchainSecurityModuleDispatcher { contract_address: specific_address };
-    // println!("E2E test messageid_ism: {}", messageid_ism.contract_address());
 
     let aggregation = setup_aggregation(
         array![messageid_ism.contract_address.into()].span(),

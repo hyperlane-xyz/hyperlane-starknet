@@ -22,7 +22,7 @@ jobs:
 
       - name: Install starknet-devnet
         run: |
-          curl -sSfL https://github.com/0xSpaceShard/starknet-devnet/releases/download/v0.0.6/starknet-devnet-x86_64-unknown-linux-gnu.tar.gz | tar -xvz -C /usr/local/bin
+          curl -sSfL https://github.com/0xSpaceShard/starknet-devnet/releases/download/v0.4.0/starknet-devnet-x86_64-unknown-linux-gnu.tar.gz | tar -xvz -C /usr/local/bin
 
       - name: Build contracts
         run: |
@@ -31,8 +31,6 @@ jobs:
       - name: Build the rust code
         run: |
           cd rust && cargo build
-
-
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1

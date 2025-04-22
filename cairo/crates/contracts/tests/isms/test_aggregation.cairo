@@ -150,7 +150,6 @@ fn test_aggregation_verify_e2e() {
         0x15d34aaf54267db7d7c367839aaf71a00a2c6a65.try_into().unwrap(),
     ];
 
-    // TODO
     // Deploy the messageid contract at a specific address
     let specific_address: ContractAddress =
         0x045133e4b0a40aa7992bfb5d7f552b767be1b070af81f0313adf8e01cf3ab32c

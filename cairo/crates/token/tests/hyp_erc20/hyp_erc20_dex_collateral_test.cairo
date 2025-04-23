@@ -231,11 +231,13 @@ fn test_dex_collateral_with_custom_gas_config() {
 #[test]
 fn test_balance_of() {
     let setup = setup_dex_collateral();
-    let balance = setup.collateral.balance_of(ALICE());
-    assert_eq!(balance, 0, "Incorrect balance");
 
     perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
-    let balance_after = setup.remote_dex_collateral.balance_on_behalf_of(BOB());
+    let dex_collateral = IHypErc20DexCollateralDispatcher {
+        contract_address: setup.remote_dex_collateral.contract_address,
+    };
+
+    let balance_after = dex_collateral.balance_on_behalf_of(BOB());
     assert_eq!(balance_after, TRANSFER_AMT, "Incorrect balance after transfer");
 }

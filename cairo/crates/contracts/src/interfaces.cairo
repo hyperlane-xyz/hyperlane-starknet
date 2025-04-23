@@ -1,7 +1,7 @@
 use alexandria_bytes::Bytes;
 use contracts::hooks::merkle_tree_hook::merkle_tree_hook::Tree;
 use contracts::libs::message::Message;
-use contracts::utils::utils::{SerdeSnapshotBytes, SerdeSnapshotMessage};
+use core::array::ArrayTrait;
 use starknet::ContractAddress;
 use starknet::EthAddress;
 
@@ -58,7 +58,7 @@ pub trait IMailbox<TContractState> {
         ref self: TContractState,
         _destination_domain: u32,
         _recipient_address: u256,
-        _message_body: @Bytes,
+        _message_body: Bytes,
         _fee_amount: u256,
         _custom_hook_metadata: Option<Bytes>,
         _custom_hook: Option<ContractAddress>,
@@ -68,12 +68,12 @@ pub trait IMailbox<TContractState> {
         self: @TContractState,
         _destination_domain: u32,
         _recipient_address: u256,
-        _message_body: @Bytes,
+        _message_body: Bytes,
         _custom_hook_metadata: Option<Bytes>,
         _custom_hook: Option<ContractAddress>,
     ) -> u256;
 
-    fn process(ref self: TContractState, _metadata: @Bytes, _message: Message);
+    fn process(ref self: TContractState, _metadata: Bytes, _message: Message);
 
     fn recipient_ism(self: @TContractState, _recipient: u256) -> ContractAddress;
 
@@ -93,13 +93,13 @@ pub trait IMailbox<TContractState> {
 pub trait IInterchainSecurityModule<TContractState> {
     fn module_type(self: @TContractState) -> ModuleType;
 
-    fn verify(self: @TContractState, _metadata: @Bytes, _message: @Message) -> bool;
+    fn verify(self: @TContractState, _metadata: Bytes, _message: Message) -> bool;
 }
 
 #[starknet::interface]
 pub trait IValidatorConfiguration<TContractState> {
     fn validators_and_threshold(
-        self: @TContractState, _message: @Message,
+        self: @TContractState, _message: Message,
     ) -> (Span<EthAddress>, u32);
 
     fn get_validators(self: @TContractState) -> Span<EthAddress>;
@@ -117,13 +117,13 @@ pub trait ISpecifiesInterchainSecurityModule<TContractState> {
 pub trait IPostDispatchHook<TContractState> {
     fn hook_type(self: @TContractState) -> Types;
 
-    fn supports_metadata(self: @TContractState, _metadata: @Bytes) -> bool;
+    fn supports_metadata(self: @TContractState, _metadata: Bytes) -> bool;
 
     fn post_dispatch(
-        ref self: TContractState, _metadata: @Bytes, _message: @Message, _fee_amount: u256,
+        ref self: TContractState, _metadata: Bytes, _message: Message, _fee_amount: u256,
     );
 
-    fn quote_dispatch(ref self: TContractState, _metadata: @Bytes, _message: @Message) -> u256;
+    fn quote_dispatch(ref self: TContractState, _metadata: Bytes, _message: Message) -> u256;
 }
 
 
@@ -181,9 +181,9 @@ pub trait IDefaultFallbackRoutingIsm<TContractState> {
     /// Relayers infer how to fetch and format metadata.
     fn module_type(self: @TContractState) -> ModuleType;
 
-    fn route(self: @TContractState, _message: @Message) -> ContractAddress;
+    fn route(self: @TContractState, _message: Message) -> ContractAddress;
 
-    fn verify(self: @TContractState, _metadata: @Bytes, _message: @Message) -> bool;
+    fn verify(self: @TContractState, _metadata: Bytes, _message: Message) -> bool;
 }
 
 #[starknet::interface]
@@ -241,10 +241,10 @@ pub trait IAggregation<TContractState> {
     fn module_type(self: @TContractState) -> ModuleType;
 
     fn modules_and_threshold(
-        self: @TContractState, _message: @Message,
+        self: @TContractState, _message: Message,
     ) -> (Span<ContractAddress>, u8);
 
-    fn verify(self: @TContractState, _metadata: @Bytes, _message: @Message) -> bool;
+    fn verify(self: @TContractState, _metadata: Bytes, _message: Message) -> bool;
 
     fn get_modules(self: @TContractState) -> Span<ContractAddress>;
 
@@ -268,7 +268,7 @@ pub trait IMerkleTreeHook<TContractState> {
 pub trait IPausableIsm<TContractState> {
     fn module_type(self: @TContractState) -> ModuleType;
 
-    fn verify(self: @TContractState, _metadata: Bytes, _message: @Message) -> bool;
+    fn verify(self: @TContractState, _metadata: Bytes, _message: Message) -> bool;
 
     fn pause(ref self: TContractState);
 
@@ -291,7 +291,7 @@ pub trait IProtocolFee<TContractState> {
 
 #[starknet::interface]
 pub trait IRoutingIsm<TContractState> {
-    fn route(self: @TContractState, _message: @Message) -> ContractAddress;
+    fn route(self: @TContractState, _message: Message) -> ContractAddress;
 }
 
 #[derive(Drop, Serde, Copy)]

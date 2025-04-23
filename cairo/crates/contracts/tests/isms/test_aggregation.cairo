@@ -111,7 +111,7 @@ fn test_aggregation_verify() {
     concat_metadata.concat(@message_id_metadata);
     // dummy metadata for noop ism
     concat_metadata.concat(@message_id_metadata);
-    assert(aggregation.verify(@concat_metadata, @message), 'Aggregation: verify failed');
+    assert(aggregation.verify(concat_metadata, message), 'Aggregation: verify failed');
 }
 
 
@@ -150,7 +150,6 @@ fn test_aggregation_verify_e2e() {
         0x15d34aaf54267db7d7c367839aaf71a00a2c6a65.try_into().unwrap(),
     ];
 
-    // TODO
     // Deploy the messageid contract at a specific address
     let specific_address: ContractAddress =
         0x045133e4b0a40aa7992bfb5d7f552b767be1b070af81f0313adf8e01cf3ab32c
@@ -167,12 +166,13 @@ fn test_aggregation_verify_e2e() {
     messageid_class.deploy_at(@parameters, specific_address);
 
     let messageid_ism = IInterchainSecurityModuleDispatcher { contract_address: specific_address };
+    // println!("E2E test messageid_ism: {}", messageid_ism.contract_address());
 
     let aggregation = setup_aggregation(
         array![messageid_ism.contract_address.into()].span(),
         aggregation_threshold.try_into().unwrap(),
     );
 
-    assert(aggregation.verify(@metadata, @message), 'Aggregation: verify failed');
+    assert(aggregation.verify(metadata, message), 'Aggregation: verify failed');
 }
 

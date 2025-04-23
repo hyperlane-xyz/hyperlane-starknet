@@ -154,6 +154,12 @@ fn test_remote_transfer_with_custom_gas_config() {
     cheat_caller_address(setup.primary_token.contract_address, ALICE(), CheatSpan::TargetCalls(1));
     setup.primary_token.approve(xerc20lockbox.contract_address, TRANSFER_AMT);
 
+    println!(
+        "allowance {:?} {:?}",
+        setup.primary_token.allowance(ALICE(), xerc20lockbox.contract_address),
+        xerc20lockbox.contract_address,
+    );
+
     // Check balance before transfer
     let balance_before = xerc20lockbox.balance_of(ALICE());
     // Set custom gas config

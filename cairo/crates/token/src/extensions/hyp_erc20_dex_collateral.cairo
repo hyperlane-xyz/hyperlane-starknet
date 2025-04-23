@@ -1,7 +1,10 @@
+use starknet::ContractAddress;
+
 #[starknet::interface]
 pub trait IHypErc20DexCollateral<TContractState> {
     fn get_dex(self: @TContractState) -> starknet::ContractAddress;
     fn get_deposit_token(self: @TContractState) -> starknet::ContractAddress;
+    fn balance_on_behalf_of(self: @TContractState, account: ContractAddress) -> u256;
 }
 
 #[starknet::contract]
@@ -29,6 +32,9 @@ mod HypErc20DexCollateral {
     const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 =
         152884417735717128974538630286950396387019428546378603946454937413393931990;
 
+    // Selector for get_token_asset_balance syscall (override balance_of) - TODO: replace with actual computed selector if needed
+    const DEX_GET_TOKEN_ASSET_BALANCE_SELECTOR: felt252 =
+    1665911467569696668939924225482764792524684689121401326234504034677351953081;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: MailboxclientComponent, storage: mailbox, event: MailBoxClientEvent);
@@ -195,6 +201,27 @@ mod HypErc20DexCollateral {
         fn get_deposit_token(self: @ContractState) -> starknet::ContractAddress {
             self.collateral.wrapped_token.read().contract_address
         }
+        
+        fn balance_on_behalf_of(self: @ContractState, account: ContractAddress) -> u256 {
+            let dex_address = self.dex.read();
+            let token_address = self.collateral.wrapped_token.read().contract_address;
+
+            let mut calldata = ArrayTrait::new();
+            account.serialize(ref calldata);
+            token_address.serialize(ref calldata);
+
+            let balance_call_result = call_contract_syscall(
+                address: dex_address,
+                entry_point_selector: DEX_GET_TOKEN_ASSET_BALANCE_SELECTOR,
+                calldata: calldata.span(),
+            );
+            assert(balance_call_result.is_ok(), 'BALANCE_CALL_FAILED');
+
+            let mut balance_call_result_unwrapped = balance_call_result.unwrap();
+            let balance = Serde::<felt252>::deserialize(ref balance_call_result_unwrapped)
+                .unwrap();
+            balance.try_into().unwrap()
+        }
     }
 
     #[abi(embed_v0)]
@@ -209,4 +236,6 @@ mod HypErc20DexCollateral {
             self.upgradeable.upgrade(new_class_hash);
         }
     }
+
+
 }

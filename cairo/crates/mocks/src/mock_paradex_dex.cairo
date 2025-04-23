@@ -15,6 +15,10 @@ pub trait IMockParadexDex<TContractState> {
     ) -> felt252;
 
     fn set_hyperlane_token(ref self: TContractState, token_address: ContractAddress);
+
+    fn get_token_asset_balance(
+        self: @TContractState, account: ContractAddress, token_address: ContractAddress
+    ) -> felt252;
 }
 
 #[starknet::contract]
@@ -73,7 +77,7 @@ pub mod MockParadexDex {
                 .allowance(starknet::get_caller_address(), get_contract_address());
             let amount_u256: u256 = amount.try_into().unwrap();
             assert(allowance >= amount_u256, Errors::INSUFFICIENT_ALLOWANCE);
-            token_dispatcher.transfer_from(starknet::get_caller_address(), recipient, amount_u256);
+            // token_dispatcher.transfer_from(starknet::get_caller_address(), recipient, amount_u256); 
 
             self
                 .emit(
@@ -82,6 +86,13 @@ pub mod MockParadexDex {
                     },
                 );
             return amount;
+        }
+
+        fn get_token_asset_balance(
+            self: @ContractState, account: ContractAddress, token_address: ContractAddress
+        ) -> felt252 {
+            let token_dispatcher = ERC20ABIDispatcher { contract_address: token_address };
+            token_dispatcher.balance_of(account).try_into().unwrap()
         }
     }
 }

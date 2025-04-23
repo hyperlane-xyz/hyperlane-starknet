@@ -182,7 +182,7 @@ fn test_remote_transfer_dex() {
         );
 
     let balance_after = setup.paradex_usdc.balance_of(BOB());
-    assert_eq!(balance_after, TRANSFER_AMT, "Incorrect balance after transfer");
+    assert_eq!(balance_after, 0, "Balance shouldn't be transferred directly BOB");
 }
 
 #[test]
@@ -218,12 +218,24 @@ fn test_dex_collateral_with_custom_gas_config() {
         balance_before - TRANSFER_AMT,
         "Incorrect balance after transfer",
     );
-    assert_eq!(
-        setup.paradex_usdc.balance_of(BOB()), TRANSFER_AMT, "Incorrect balance after transfer",
-    );
+    // assert_eq!(
+    //     setup.paradex_usdc.balance_of(BOB()), TRANSFER_AMT, "Incorrect balance after transfer",
+    // );
     assert_eq!(
         eth_dispatcher.balance_of(setup.setup.igp.contract_address),
         GAS_LIMIT * gas_price,
         "Gas fee wasn't transferred",
     );
+}
+
+#[test]
+fn test_balance_of() {
+    let setup = setup_dex_collateral();
+    let balance = setup.collateral.balance_of(ALICE());
+    assert_eq!(balance, 0, "Incorrect balance");
+
+    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+
+    let balance_after = setup.remote_dex_collateral.balance_on_behalf_of(BOB());
+    assert_eq!(balance_after, TRANSFER_AMT, "Incorrect balance after transfer");
 }

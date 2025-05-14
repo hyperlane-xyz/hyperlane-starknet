@@ -127,7 +127,8 @@ pub mod GasRouterComponent {
         ///
         /// # Arguments
         ///
-        /// * `destination_domain` - A `u32` representing the domain for which the gas limit is being requested.
+        /// * `destination_domain` - A `u32` representing the domain for which the gas limit is
+        /// being requested.
         ///
         /// # Returns
         ///

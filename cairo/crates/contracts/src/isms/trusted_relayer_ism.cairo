@@ -7,14 +7,14 @@ pub trait ITrustedRelayerISM<TContractState> {
 
 #[starknet::contract]
 pub mod trusted_relayer_ism {
-    use super::*;
     use alexandria_bytes::Bytes;
     use contracts::interfaces::{
         IInterchainSecurityModule, IMailboxDispatcher, IMailboxDispatcherTrait, ModuleType,
     };
     use contracts::libs::message::{Message, MessageTrait};
-    
+
     use starknet::storage::{StoragePointerReadAccess, StoragePointerWriteAccess};
+    use super::*;
     #[storage]
     struct Storage {
         mailbox: ContractAddress,
@@ -43,7 +43,7 @@ pub mod trusted_relayer_ism {
             self.trusted_relayer.read()
         }
     }
-    
+
 
     #[abi(embed_v0)]
     impl IInterchainSecurityModuleImpl of IInterchainSecurityModule<ContractState> {

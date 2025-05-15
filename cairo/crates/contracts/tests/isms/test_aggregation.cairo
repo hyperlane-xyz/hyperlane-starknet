@@ -116,9 +116,11 @@ fn test_aggregation_verify() {
 }
 
 #[test]
+#[should_panic(expected: ('Pausable: paused',))]
 fn test_aggregation_verify_threshold_not_met() {
     let threshold = 2;
 
+    // MessageId ism
     let array = array![
         0x01020304050607080910111213141516,
         0x01020304050607080910111213141516,
@@ -134,14 +136,23 @@ fn test_aggregation_verify_threshold_not_met() {
         recipient: VALID_RECIPIENT(),
         body: message_body.clone(),
     };
+    let (_, validators_address, _) = get_message_and_signature();
+    let (messageid, _) = setup_messageid_multisig_ism(validators_address.span(), threshold);
+    let origin_merkle_tree: u256 = 'origin_merkle_tree_hook'.try_into().unwrap();
+    let root: u256 = 'root'.try_into().unwrap();
+    let index = 1;
+    let message_id_metadata = build_messageid_metadata(origin_merkle_tree, root, index);
 
-    // Noop ism
-
-    let trusted_relayer_ism = setup_trusted_relayer_ism();
+    // Pausable ism
     let (_, pausable_ism) = setup_pausable_ism();
-    // pausable_ism.pause();
+    // pause
+    cheat_caller_address(
+        pausable_ism.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    pausable_ism.pause();
+
     let aggregation = setup_aggregation(
-        array![pausable_ism.contract_address.into(), pausable_ism.contract_address.into()].span(),
+        array![messageid.contract_address.into(), pausable_ism.contract_address.into()].span(),
         threshold.try_into().unwrap(),
     );
     let ownable = IOwnableDispatcher { contract_address: aggregation.contract_address };
@@ -150,9 +161,10 @@ fn test_aggregation_verify_threshold_not_met() {
     );
     let mut concat_metadata = BytesTrait::new_empty();
     concat_metadata.append_u128(0x00000010000001A0000001A0000001A9);
-    // concat_metadata.concat(@message_id_metadata);
-    // // dummy metadata for noop ism
-    // concat_metadata.concat(@message_id_metadata);
+    concat_metadata.concat(@message_id_metadata);
+    concat_metadata.concat(@message_id_metadata);
+
+    // panic with 'Pausable: paused'
     assert(aggregation.verify(concat_metadata, message), 'Aggregation: verify failed');
 }
 

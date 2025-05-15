@@ -2,7 +2,7 @@ use alexandria_bytes::{Bytes, BytesTrait};
 use contracts::interfaces::{
     IAggregationDispatcher, IAggregationDispatcherTrait, IInterchainSecurityModuleDispatcher,
     IInterchainSecurityModuleDispatcherTrait, IValidatorConfigurationDispatcher,
-    IValidatorConfigurationDispatcherTrait, ModuleType,
+    IValidatorConfigurationDispatcherTrait, ModuleType, IPausableIsmDispatcherTrait
 };
 use contracts::isms::aggregation::aggregation;
 use contracts::libs::message::{HYPERLANE_VERSION, Message};
@@ -19,7 +19,7 @@ use starknet::ContractAddress;
 use super::super::setup::{
     CONTRACT_MODULES, DESTINATION_DOMAIN, LOCAL_DOMAIN, MODULES, OWNER, VALID_OWNER,
     VALID_RECIPIENT, build_messageid_metadata, get_message_and_signature, setup_aggregation,
-    setup_messageid_multisig_ism, setup_noop_ism,
+    setup_messageid_multisig_ism, setup_pausable_ism,
 };
 
 #[test]
@@ -73,8 +73,7 @@ fn test_get_modules() {
 fn test_aggregation_verify() {
     let threshold = 2;
 
-    // MESSAGEID
-
+    // MessageId ism
     let array = array![
         0x01020304050607080910111213141516,
         0x01020304050607080910111213141516,
@@ -96,10 +95,12 @@ fn test_aggregation_verify() {
     let root: u256 = 'root'.try_into().unwrap();
     let index = 1;
     let message_id_metadata = build_messageid_metadata(origin_merkle_tree, root, index);
-    // Noop ism
-    let noop_ism = setup_noop_ism();
+
+    // Pausable ism
+    let (_, pausable_ism) = setup_pausable_ism();
+
     let aggregation = setup_aggregation(
-        array![messageid.contract_address.into(), noop_ism.contract_address.into()].span(),
+        array![messageid.contract_address.into(), pausable_ism.contract_address.into()].span(),
         threshold.try_into().unwrap(),
     );
     let ownable = IOwnableDispatcher { contract_address: aggregation.contract_address };
@@ -109,8 +110,61 @@ fn test_aggregation_verify() {
     let mut concat_metadata = BytesTrait::new_empty();
     concat_metadata.append_u128(0x00000010000001A0000001A0000001A9);
     concat_metadata.concat(@message_id_metadata);
-    // dummy metadata for noop ism
     concat_metadata.concat(@message_id_metadata);
+
+    assert(aggregation.verify(concat_metadata, message), 'Aggregation: verify failed');
+}
+
+#[test]
+#[should_panic(expected: ('Pausable: paused',))]
+fn test_aggregation_verify_threshold_not_met() {
+    let threshold = 2;
+
+    // MessageId ism
+    let array = array![
+        0x01020304050607080910111213141516,
+        0x01020304050607080910111213141516,
+        0x01020304050607080910000000000000,
+    ];
+    let message_body = BytesTrait::new(42, array);
+    let message = Message {
+        version: HYPERLANE_VERSION,
+        nonce: 0,
+        origin: LOCAL_DOMAIN,
+        sender: VALID_OWNER(),
+        destination: DESTINATION_DOMAIN,
+        recipient: VALID_RECIPIENT(),
+        body: message_body.clone(),
+    };
+    let (_, validators_address, _) = get_message_and_signature();
+    let (messageid, _) = setup_messageid_multisig_ism(validators_address.span(), threshold);
+    let origin_merkle_tree: u256 = 'origin_merkle_tree_hook'.try_into().unwrap();
+    let root: u256 = 'root'.try_into().unwrap();
+    let index = 1;
+    let message_id_metadata = build_messageid_metadata(origin_merkle_tree, root, index);
+
+    // Pausable ism
+    let (_, pausable_ism) = setup_pausable_ism();
+    // pause
+    cheat_caller_address(
+        pausable_ism.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    pausable_ism.pause();
+
+    let aggregation = setup_aggregation(
+        array![messageid.contract_address.into(), pausable_ism.contract_address.into()].span(),
+        threshold.try_into().unwrap(),
+    );
+    let ownable = IOwnableDispatcher { contract_address: aggregation.contract_address };
+    cheat_caller_address(
+        ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    let mut concat_metadata = BytesTrait::new_empty();
+    concat_metadata.append_u128(0x00000010000001A0000001A0000001A9);
+    concat_metadata.concat(@message_id_metadata);
+    concat_metadata.concat(@message_id_metadata);
+
+    // panic with 'Pausable: paused'
     assert(aggregation.verify(concat_metadata, message), 'Aggregation: verify failed');
 }
 

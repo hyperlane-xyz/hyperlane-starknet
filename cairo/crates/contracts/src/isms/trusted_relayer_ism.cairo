@@ -1,10 +1,5 @@
 use starknet::ContractAddress;
 
-#[starknet::interface]
-pub trait ITrustedRelayerISM<TContractState> {
-    fn trusted_relayer(self: @TContractState) -> ContractAddress;
-}
-
 #[starknet::contract]
 pub mod trusted_relayer_ism {
     use alexandria_bytes::Bytes;
@@ -28,22 +23,6 @@ pub mod trusted_relayer_ism {
         self.mailbox.write(_mailbox);
         self.trusted_relayer.write(_trusted_relayer);
     }
-
-
-    #[abi(embed_v0)]
-    impl TrustedRelayerISMImpl of super::ITrustedRelayerISM<ContractState> {
-        /// Returns the trusted relayer address.
-        ///
-        /// This function retrieves the address of the trusted relayer.
-        ///
-        /// # Returns
-        ///
-        /// A `ContractAddress` value representing the trusted relayer address.
-        fn trusted_relayer(self: @ContractState) -> ContractAddress {
-            self.trusted_relayer.read()
-        }
-    }
-
 
     #[abi(embed_v0)]
     impl IInterchainSecurityModuleImpl of IInterchainSecurityModule<ContractState> {

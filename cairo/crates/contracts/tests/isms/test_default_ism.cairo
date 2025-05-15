@@ -4,9 +4,6 @@ use contracts::interfaces::{
     IMailboxDispatcher, IMailboxDispatcherTrait, IPausableIsmDispatcher,
     IPausableIsmDispatcherTrait, ModuleType,
 };
-use contracts::isms::trusted_relayer_ism::{
-    ITrustedRelayerISMDispatcher, ITrustedRelayerISMDispatcherTrait,
-};
 use contracts::libs::message::{HYPERLANE_VERSION, Message, MessageTrait};
 use contracts::utils::utils::U256TryIntoContractAddress;
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
@@ -25,17 +22,6 @@ fn test_verify_noop_ism() {
     assert_eq!(noop_ism.verify(metadata, message), true);
     assert_eq!(noop_ism.module_type(), ModuleType::NULL(()));
 }
-
-#[test]
-fn test_trusted_relayer_ism_get_trusted_relayer() {
-    let trusted_ism = setup_trusted_relayer_ism();
-    let trusted_relayer_ism = ITrustedRelayerISMDispatcher {
-        contract_address: trusted_ism.contract_address,
-    };
-    let trusted_relayer = trusted_relayer_ism.trusted_relayer();
-    assert_eq!(trusted_relayer, OWNER().try_into().unwrap());
-}
-
 
 #[test]
 fn test_verify_trusted_relayer_ism() {

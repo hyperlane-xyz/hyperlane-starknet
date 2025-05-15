@@ -8,7 +8,6 @@ pub trait IGasRouter<TState> {
         domain: Option<u32>,
         gas: Option<u256>,
     );
-    fn destination_gas(self: @TState, destination_domain: u32) -> u256;
     fn quote_gas_payment(self: @TState, destination_domain: u32) -> u256;
 }
 
@@ -119,22 +118,6 @@ pub mod GasRouterComponent {
                     }
                 },
             }
-        }
-
-        /// Returns the gas limit for a specified domain.
-        ///
-        /// This function retrieves the gas limit configured for a given destination domain.
-        ///
-        /// # Arguments
-        ///
-        /// * `destination_domain` - A `u32` representing the domain for which the gas limit is
-        /// being requested.
-        ///
-        /// # Returns
-        ///
-        /// A `u256` value representing the gas limit for the specified domain.
-        fn destination_gas(self: @ComponentState<TContractState>, destination_domain: u32) -> u256 {
-            self.destination_gas.read(destination_domain)
         }
 
         /// Returns the quoted gas payment for dispatching a message to the specified domain.

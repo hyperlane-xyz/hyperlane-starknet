@@ -9,6 +9,7 @@ pub trait IHypErc20DexCollateral<TContractState> {
 
 #[starknet::contract]
 mod HypErc20DexCollateral {
+    use core::num::traits::Pow;
     use alexandria_bytes::Bytes;
     use contracts::client::gas_router_component::GasRouterComponent;
     use contracts::client::mailboxclient_component::MailboxclientComponent;
@@ -27,6 +28,7 @@ mod HypErc20DexCollateral {
             TokenRouterComponent::{TokenRouterHooksTrait}, TokenRouterTransferRemoteHookDefaultImpl,
         },
     };
+    use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
 
     // NOTE: Starknet’s version of the Keccak hash function (denoted by sn_keccak)
     //       is defined as the first 250 bits of Ethereum’s keccak256
@@ -148,8 +150,28 @@ mod HypErc20DexCollateral {
         fn transfer_from_sender_hook(
             ref self: TokenRouterComponent::ComponentState<ContractState>, amount_or_id: u256,
         ) -> Bytes {
+
+            let mut contract_state = TokenRouterComponent::HasComponent::get_contract_mut(ref self);
+            let dex_address = contract_state.dex.read();
+            let token_address = contract_state.collateral.wrapped_token.read().contract_address;
+
+            // Get decimals for scaling
+            let token_dispatcher = ERC20ABIDispatcher { contract_address: token_address };
+            let token_decimals = token_dispatcher.decimals();
+
+            let dex_dispatcher = IParaclearDispatcher { contract_address: dex_address };
+            let dex_decimals: u8 = dex_dispatcher.decimals();   
+
+            let scaled_amount = if token_decimals < dex_decimals {
+                amount_or_id / (10_u256.pow((token_decimals - dex_decimals).into()))
+            } else if token_decimals > dex_decimals {
+                amount_or_id * (10_u256.pow((dex_decimals - token_decimals).into()))
+            } else {
+                amount_or_id
+            };
+
             HypErc20CollateralComponent::TokenRouterHooksImpl::transfer_from_sender_hook(
-                ref self, amount_or_id,
+                ref self, scaled_amount,
             )
         }
 
@@ -160,20 +182,34 @@ mod HypErc20DexCollateral {
             metadata: Bytes,
         ) {
             let recipient: ContractAddress = recipient.try_into().unwrap();
-            let amount: felt252 = amount_or_id.try_into().unwrap();
 
             let mut contract_state = TokenRouterComponent::HasComponent::get_contract_mut(ref self);
             let dex_address = contract_state.dex.read();
             let token_address = contract_state.collateral.wrapped_token.read().contract_address;
 
-            // Approve the DEX to spend the tokens
+            // Get decimals for scaling
             let token_dispatcher = ERC20ABIDispatcher { contract_address: token_address };
+            let token_decimals = token_dispatcher.decimals();
+
+            let dex_dispatcher = IParaclearDispatcher { contract_address: dex_address };
+            let dex_decimals: u8 = dex_dispatcher.decimals();
+
+            // Scale amount from token decimals to DEX decimals
+            let scaled_amount = if token_decimals > dex_decimals {
+                amount_or_id / (10_u256.pow((token_decimals - dex_decimals).into()))
+            } else if token_decimals < dex_decimals {
+                amount_or_id * (10_u256.pow((dex_decimals - token_decimals).into()))
+            } else {
+                amount_or_id
+            };
+
+            // Approve the DEX to spend the tokens
             token_dispatcher.approve(dex_address, amount_or_id);
 
             let mut calldata = ArrayTrait::new();
             recipient.serialize(ref calldata); // the actual recipient of the deposit
             token_address.serialize(ref calldata); // depositing collateral token
-            amount.serialize(ref calldata);
+            scaled_amount.serialize(ref calldata);
 
             let dex_call_result = call_contract_syscall(
                 address: dex_address,

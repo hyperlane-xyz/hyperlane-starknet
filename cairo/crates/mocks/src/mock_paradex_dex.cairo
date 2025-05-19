@@ -2,6 +2,7 @@ use contracts::utils::utils::U256TryIntoContractAddress;
 use core::starknet::event::EventEmitter;
 use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
 use starknet::ContractAddress;
+use contracts::paradex::interface::IParaclear;
 use starknet::get_contract_address;
 
 
@@ -51,6 +52,13 @@ pub mod MockParadexDex {
 
     #[constructor]
     fn constructor(ref self: ContractState) {}
+
+    #[abi(embed_v0)]
+    impl IParaclearImpl of IParaclear<ContractState> {
+        fn decimals(self: @ContractState) -> u8 {
+            8
+        }
+    }
 
 
     #[abi(embed_v0)]

@@ -1,3 +1,4 @@
+// WARNING: This contract is unaudited and should be used at your own risk.
 use starknet::ContractAddress;
 
 #[starknet::interface]
@@ -9,13 +10,14 @@ pub trait IHypErc20DexCollateral<TContractState> {
 
 #[starknet::contract]
 mod HypErc20DexCollateral {
-    use core::num::traits::Pow;
     use alexandria_bytes::Bytes;
     use contracts::client::gas_router_component::GasRouterComponent;
     use contracts::client::mailboxclient_component::MailboxclientComponent;
     use contracts::client::router_component::RouterComponent;
+    use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
     use contracts::utils::utils::U256TryIntoContractAddress;
     use core::array::ArrayTrait;
+    use core::num::traits::Pow;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin::upgrades::interface::IUpgradeable;
@@ -28,7 +30,6 @@ mod HypErc20DexCollateral {
             TokenRouterComponent::{TokenRouterHooksTrait}, TokenRouterTransferRemoteHookDefaultImpl,
         },
     };
-    use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
 
     // NOTE: Starknet’s version of the Keccak hash function (denoted by sn_keccak)
     //       is defined as the first 250 bits of Ethereum’s keccak256
@@ -147,7 +148,6 @@ mod HypErc20DexCollateral {
         fn transfer_from_sender_hook(
             ref self: TokenRouterComponent::ComponentState<ContractState>, amount_or_id: u256,
         ) -> Bytes {
-
             let mut contract_state = TokenRouterComponent::HasComponent::get_contract_mut(ref self);
             let dex_address = contract_state.dex.read();
             let token_address = contract_state.collateral.wrapped_token.read().contract_address;
@@ -157,7 +157,7 @@ mod HypErc20DexCollateral {
             let token_decimals = token_dispatcher.decimals();
 
             let dex_dispatcher = IParaclearDispatcher { contract_address: dex_address };
-            let dex_decimals: u8 = dex_dispatcher.decimals();   
+            let dex_decimals: u8 = dex_dispatcher.decimals();
 
             let scaled_amount = if token_decimals < dex_decimals {
                 amount_or_id / (10_u256.pow((token_decimals - dex_decimals).into()))

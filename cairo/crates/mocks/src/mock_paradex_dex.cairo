@@ -1,8 +1,8 @@
+use contracts::paradex::interface::IParaclear;
 use contracts::utils::utils::U256TryIntoContractAddress;
-use core::{starknet::event::EventEmitter, num::traits::Pow};
+use core::{num::traits::Pow, starknet::event::EventEmitter};
 use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
 use starknet::ContractAddress;
-use contracts::paradex::interface::IParaclear;
 use starknet::get_contract_address;
 
 
@@ -83,14 +83,16 @@ pub mod MockParadexDex {
             } else {
                 amount_u256
             };
-            
+
             // check for the allowance of the token
             let allowance = token_dispatcher
                 .allowance(starknet::get_caller_address(), get_contract_address());
             assert(allowance >= scale_back_amount, Errors::INSUFFICIENT_ALLOWANCE);
             token_dispatcher
                 .transfer_from(
-                    starknet::get_caller_address(), starknet::get_contract_address(), scale_back_amount,
+                    starknet::get_caller_address(),
+                    starknet::get_contract_address(),
+                    scale_back_amount,
                 );
 
             self

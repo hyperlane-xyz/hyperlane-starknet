@@ -1,14 +1,14 @@
 use alexandria_bytes::BytesTrait;
-use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
 use contracts::client::gas_router_component::GasRouterComponent::GasRouterConfig;
-use contracts::utils::utils::U256TryIntoContractAddress;
 use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
+use contracts::utils::utils::U256TryIntoContractAddress;
 use core::{integer::BoundedInt, num::traits::Pow};
 use mocks::{
     mock_paradex_dex::{IMockParadexDexDispatcher, IMockParadexDexDispatcherTrait, MockParadexDex},
     test_erc20::{ITestERC20Dispatcher, ITestERC20DispatcherTrait},
     test_interchain_gas_payment::ITestInterchainGasPaymentDispatcherTrait,
 };
+use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
 use openzeppelin::token::erc20::interface::{IERC20Dispatcher, IERC20DispatcherTrait};
 use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, EventSpyAssertionsTrait,
@@ -139,17 +139,12 @@ fn process_transfers_dex(setup: @DexSetup, recipient: ContractAddress, amount: u
 }
 
 // Calculate expected amount based on decimal difference
-fn calc_expected_amt(
-    setup: @DexSetup, 
-    transfer_amt: u256
-) -> u256 {
+fn calc_expected_amt(setup: @DexSetup, transfer_amt: u256) -> u256 {
     let collateral_token = ERC20ABIDispatcher {
-        contract_address: (*setup).setup.primary_token.contract_address
+        contract_address: (*setup).setup.primary_token.contract_address,
     };
     let collateral_decimal = collateral_token.decimals();
-    let paraclear = IParaclearDispatcher {
-        contract_address: (*setup).dex.contract_address
-    };
+    let paraclear = IParaclearDispatcher { contract_address: (*setup).dex.contract_address };
     let paraclear_decimal = paraclear.decimals();
 
     if collateral_decimal > paraclear_decimal {
@@ -177,9 +172,7 @@ fn test_dex_contract_setup() {
 #[test]
 fn test_dex_decimals() {
     let setup = setup_dex_collateral();
-    let dex_collateral = IParaclearDispatcher {
-        contract_address: setup.dex.contract_address,
-    };
+    let dex_collateral = IParaclearDispatcher { contract_address: setup.dex.contract_address };
     let dex_decimals = dex_collateral.decimals();
     assert_eq!(dex_decimals, 8, "DEX decimals mismatch");
 }
@@ -198,16 +191,15 @@ fn test_remote_transfer_dex() {
         balance_before - TRANSFER_AMT,
         "Incorrect balance after transfer",
     );
-    
+
     let collateral_token = ERC20ABIDispatcher {
-        contract_address: setup.setup.primary_token.contract_address
+        contract_address: setup.setup.primary_token.contract_address,
     };
-    let paraclear = IParaclearDispatcher {
-        contract_address: setup.dex.contract_address,
-    };
+    let paraclear = IParaclearDispatcher { contract_address: setup.dex.contract_address };
 
     // test when paraclear_decimals > dex_decimals (18 > 8)
-    let expected_amount = TRANSFER_AMT / 10_u256.pow((collateral_token.decimals() - paraclear.decimals()).into());
+    let expected_amount = TRANSFER_AMT
+        / 10_u256.pow((collateral_token.decimals() - paraclear.decimals()).into());
 
     spy
         .assert_emitted(
@@ -240,7 +232,7 @@ fn test_fuzz_remote_transfer_scaling(mut paraclear_decimal: u8) {
 
     let expected_amount = calc_expected_amt(@setup, TRANSFER_AMT);
     setup.paradex_usdc.mint(setup.remote_dex_collateral.contract_address, expected_amount);
-    
+
     perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
     spy
@@ -330,7 +322,7 @@ fn test_fuzz_balance_on_behalf_of_scaling(mut paraclear_decimal: u8) {
     let dex_collateral = IHypErc20DexCollateralDispatcher {
         contract_address: setup.remote_dex_collateral.contract_address,
     };
-    
+
     let balance_after = dex_collateral.balance_on_behalf_of(BOB());
     assert_eq!(balance_after, TRANSFER_AMT, "Incorrect balance after transfer");
 }

@@ -1,8 +1,9 @@
 use alexandria_bytes::BytesTrait;
+use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
 use contracts::client::gas_router_component::GasRouterComponent::GasRouterConfig;
-use contracts::hooks::libs::standard_hook_metadata::standard_hook_metadata::VARIANT;
 use contracts::utils::utils::U256TryIntoContractAddress;
-use core::integer::BoundedInt;
+use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
+use core::{integer::BoundedInt, num::traits::Pow};
 use mocks::{
     mock_paradex_dex::{IMockParadexDexDispatcher, IMockParadexDexDispatcherTrait, MockParadexDex},
     test_erc20::{ITestERC20Dispatcher, ITestERC20DispatcherTrait},
@@ -137,6 +138,29 @@ fn process_transfers_dex(setup: @DexSetup, recipient: ContractAddress, amount: u
     (*setup).remote_dex_collateral.handle(ORIGIN, local_token_address.into(), message);
 }
 
+// Calculate expected amount based on decimal difference
+fn calc_expected_amt(
+    setup: @DexSetup, 
+    transfer_amt: u256
+) -> u256 {
+    let collateral_token = ERC20ABIDispatcher {
+        contract_address: (*setup).setup.primary_token.contract_address
+    };
+    let collateral_decimal = collateral_token.decimals();
+    let paraclear = IParaclearDispatcher {
+        contract_address: (*setup).dex.contract_address
+    };
+    let paraclear_decimal = paraclear.decimals();
+
+    if collateral_decimal > paraclear_decimal {
+        // Scale down when collateral has more decimals
+        transfer_amt / 10_u256.pow((collateral_decimal - paraclear_decimal).into())
+    } else {
+        // Scale up when paraclear has more decimals
+        transfer_amt * 10_u256.pow((paraclear_decimal - collateral_decimal).into())
+    }
+}
+
 #[test]
 fn test_dex_contract_setup() {
     let setup = setup_dex_collateral();
@@ -148,6 +172,16 @@ fn test_dex_contract_setup() {
 
     let deposit_token = dex_collateral.get_deposit_token();
     assert_eq!(deposit_token, setup.paradex_usdc.contract_address, "Collateral token not set");
+}
+
+#[test]
+fn test_dex_decimals() {
+    let setup = setup_dex_collateral();
+    let dex_collateral = IParaclearDispatcher {
+        contract_address: setup.dex.contract_address,
+    };
+    let dex_decimals = dex_collateral.decimals();
+    assert_eq!(dex_decimals, 8, "DEX decimals mismatch");
 }
 
 #[test]
@@ -164,6 +198,16 @@ fn test_remote_transfer_dex() {
         balance_before - TRANSFER_AMT,
         "Incorrect balance after transfer",
     );
+    
+    let collateral_token = ERC20ABIDispatcher {
+        contract_address: setup.setup.primary_token.contract_address
+    };
+    let paraclear = IParaclearDispatcher {
+        contract_address: setup.dex.contract_address,
+    };
+
+    // test when paraclear_decimals > dex_decimals (18 > 8)
+    let expected_amount = TRANSFER_AMT / 10_u256.pow((collateral_token.decimals() - paraclear.decimals()).into());
 
     spy
         .assert_emitted(
@@ -174,7 +218,7 @@ fn test_remote_transfer_dex() {
                         MockParadexDex::DepositSuccess {
                             token: setup.paradex_usdc.contract_address,
                             recipient: BOB(),
-                            amount: TRANSFER_AMT,
+                            amount: expected_amount,
                         },
                     ),
                 ),
@@ -183,6 +227,37 @@ fn test_remote_transfer_dex() {
 
     let balance_after = setup.paradex_usdc.balance_of(BOB());
     assert_eq!(balance_after, 0, "Balance shouldn't be transferred directly BOB");
+}
+
+#[test]
+#[fuzzer]
+fn test_fuzz_remote_transfer_scaling(mut paraclear_decimal: u8) {
+    paraclear_decimal = paraclear_decimal % 24 + 1;
+
+    let mut spy = spy_events();
+    let setup = setup_dex_collateral();
+    setup.dex.set_decimals(paraclear_decimal);
+
+    let expected_amount = calc_expected_amt(@setup, TRANSFER_AMT);
+    setup.paradex_usdc.mint(setup.remote_dex_collateral.contract_address, expected_amount);
+    
+    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+
+    spy
+        .assert_emitted(
+            @array![
+                (
+                    setup.dex.contract_address,
+                    MockParadexDex::Event::DepositSuccess(
+                        MockParadexDex::DepositSuccess {
+                            token: setup.paradex_usdc.contract_address,
+                            recipient: BOB(),
+                            amount: expected_amount,
+                        },
+                    ),
+                ),
+            ],
+        );
 }
 
 #[test]
@@ -229,15 +304,33 @@ fn test_dex_collateral_with_custom_gas_config() {
 }
 
 #[test]
-fn test_balance_of() {
+fn test_balance_on_behalf_of() {
     let setup = setup_dex_collateral();
+    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+
+    let dex_collateral = IHypErc20DexCollateralDispatcher {
+        contract_address: setup.remote_dex_collateral.contract_address,
+    };
+    let balance_after = dex_collateral.balance_on_behalf_of(BOB());
+    assert_eq!(balance_after, TRANSFER_AMT, "Incorrect balance after transfer");
+}
+
+#[test]
+#[fuzzer]
+fn test_fuzz_balance_on_behalf_of_scaling(mut paraclear_decimal: u8) {
+    paraclear_decimal = paraclear_decimal % 24 + 1;
+    let setup = setup_dex_collateral();
+    setup.dex.set_decimals(paraclear_decimal);
+
+    let expected_amount = calc_expected_amt(@setup, TRANSFER_AMT);
+    setup.paradex_usdc.mint(setup.remote_dex_collateral.contract_address, expected_amount);
 
     perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
     let dex_collateral = IHypErc20DexCollateralDispatcher {
         contract_address: setup.remote_dex_collateral.contract_address,
     };
-
+    
     let balance_after = dex_collateral.balance_on_behalf_of(BOB());
     assert_eq!(balance_after, TRANSFER_AMT, "Incorrect balance after transfer");
 }

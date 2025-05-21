@@ -40,7 +40,7 @@ pub mod MockParadexDex {
 
     #[constructor]
     fn constructor(ref self: ContractState, decimals: u8) {
-        self.token_decimals.write(8);
+        self.token_decimals.write(decimals);
     }
 
     #[abi(embed_v0)]

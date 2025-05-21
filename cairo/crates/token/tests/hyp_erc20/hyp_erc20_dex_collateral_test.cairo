@@ -34,6 +34,8 @@ pub struct DexSetup {
     pub collateral: IHypERC20TestDispatcher,
 }
 
+pub const PARADEX_DEX_DECIMALS: u8 = 8;
+
 
 // Setup for DEX collateral tests
 fn setup_dex_collateral() -> DexSetup {
@@ -52,7 +54,7 @@ fn setup_dex_collateral() -> DexSetup {
 
     // Deploy the mock DEX
     let mock_dex_contract = declare("MockParadexDex").unwrap().contract_class();
-    let (dex_address, _) = mock_dex_contract.deploy(@array![]).unwrap();
+    let (dex_address, _) = mock_dex_contract.deploy(@array![PARADEX_DEX_DECIMALS]).unwrap();
     let dex = IMockParadexDexDispatcher { contract_address: dex_address };
 
     let hyp_erc20_collateral_contract = declare("HypErc20Collateral").unwrap().contract_class();
@@ -85,7 +87,6 @@ fn setup_dex_collateral() -> DexSetup {
     let remote_dex_collateral = IHypERC20TestDispatcher {
         contract_address: remote_dex_collateral_address,
     };
-    dex.set_hyperlane_token(paradex_usdc.contract_address);
 
     let local_token_address: felt252 = collateral.contract_address.into();
     cheat_caller_address(
@@ -133,7 +134,9 @@ fn perform_remote_transfer_dex(setup: @DexSetup, msg_value: u256, amount: u256, 
         (*setup).paradex_usdc.approve((*setup).remote_dex_collateral.contract_address, amount);
     }
 
-    cheat_caller_address((*setup).remote_dex_collateral.contract_address, ALICE(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(
+        (*setup).remote_dex_collateral.contract_address, ALICE(), CheatSpan::TargetCalls(1),
+    );
     let bob_felt: felt252 = BOB().into();
     let bob_address: u256 = bob_felt.into();
     (*setup)

@@ -8,7 +8,6 @@ use starknet::get_contract_address;
 
 #[starknet::interface]
 pub trait IMockParadexDex<TContractState> {
-    fn set_hyperlane_token(ref self: TContractState, token_address: ContractAddress);
     fn set_decimals(ref self: TContractState, decimals: u8);
 }
 
@@ -18,13 +17,11 @@ pub mod MockParadexDex {
     use super::*;
 
     pub mod Errors {
-        pub const CALLER_NOT_HYPERLANE: felt252 = 'Caller not hyperlane';
         pub const INSUFFICIENT_ALLOWANCE: felt252 = 'Insufficient allowance';
     }
 
     #[storage]
     struct Storage {
-        hyperlane_token_address: ContractAddress,
         token_decimals: u8,
     }
 
@@ -42,7 +39,7 @@ pub mod MockParadexDex {
     }
 
     #[constructor]
-    fn constructor(ref self: ContractState) {
+    fn constructor(ref self: ContractState, decimals: u8) {
         self.token_decimals.write(8);
     }
 
@@ -65,12 +62,6 @@ pub mod MockParadexDex {
             token_address: ContractAddress,
             amount: felt252,
         ) -> felt252 {
-            // check if the sender is the hyperlane token address
-            assert(
-                starknet::get_caller_address() != self.hyperlane_token_address.read(),
-                Errors::CALLER_NOT_HYPERLANE,
-            );
-
             let token_dispatcher = ERC20ABIDispatcher { contract_address: token_address };
             let token_decimal = token_dispatcher.decimals();
             let dex_decimal = self.token_decimals.read();
@@ -107,10 +98,6 @@ pub mod MockParadexDex {
 
     #[abi(embed_v0)]
     impl IMockParadexDexImpl of super::IMockParadexDex<ContractState> {
-        fn set_hyperlane_token(ref self: ContractState, token_address: ContractAddress) {
-            self.hyperlane_token_address.write(token_address);
-        }
-
         fn set_decimals(ref self: ContractState, decimals: u8) {
             self.token_decimals.write(decimals);
         }

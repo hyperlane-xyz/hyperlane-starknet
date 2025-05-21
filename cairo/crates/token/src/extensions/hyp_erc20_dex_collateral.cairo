@@ -1,3 +1,4 @@
+// WARNING: This contract is unaudited and should be used at your own risk.
 use starknet::ContractAddress;
 
 #[starknet::interface]
@@ -13,8 +14,10 @@ mod HypErc20DexCollateral {
     use contracts::client::gas_router_component::GasRouterComponent;
     use contracts::client::mailboxclient_component::MailboxclientComponent;
     use contracts::client::router_component::RouterComponent;
+    use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
     use contracts::utils::utils::U256TryIntoContractAddress;
     use core::array::ArrayTrait;
+    use core::num::traits::Pow;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin::upgrades::interface::IUpgradeable;
@@ -33,9 +36,6 @@ mod HypErc20DexCollateral {
     // sn_keccak of selector for "deposit_on_behalf_of" function in the DEX contract
     const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 =
         152884417735717128974538630286950396387019428546378603946454937413393931990;
-    // sn_keccak of selector for "get_token_asset_balance" function in the DEX contract
-    const DEX_GET_TOKEN_ASSET_BALANCE_SELECTOR: felt252 =
-        1665911467569696668939924225482764792524684689121401326234504034677351953081;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: MailboxclientComponent, storage: mailbox, event: MailBoxClientEvent);
@@ -160,19 +160,34 @@ mod HypErc20DexCollateral {
             metadata: Bytes,
         ) {
             let recipient: ContractAddress = recipient.try_into().unwrap();
-            let amount: felt252 = amount_or_id.try_into().unwrap();
 
             let mut contract_state = TokenRouterComponent::HasComponent::get_contract_mut(ref self);
             let dex_address = contract_state.dex.read();
             let token_address = contract_state.collateral.wrapped_token.read().contract_address;
 
-            // Approve the DEX to spend the tokens
+            // Get decimals for scaling
             let token_dispatcher = ERC20ABIDispatcher { contract_address: token_address };
+            let token_decimals = token_dispatcher.decimals();
+
+            let dex_dispatcher = IParaclearDispatcher { contract_address: dex_address };
+            let dex_decimals: u8 = dex_dispatcher.decimals();
+
+            // Scale amount from token decimals to DEX decimals
+            let scaled_amount = if token_decimals > dex_decimals {
+                amount_or_id / (10_u256.pow((token_decimals - dex_decimals).into()))
+            } else if token_decimals < dex_decimals {
+                amount_or_id * (10_u256.pow((dex_decimals - token_decimals).into()))
+            } else {
+                amount_or_id
+            };
+
+            // Approve the DEX to spend the tokens
             token_dispatcher.approve(dex_address, amount_or_id);
 
             let mut calldata = ArrayTrait::new();
             recipient.serialize(ref calldata); // the actual recipient of the deposit
             token_address.serialize(ref calldata); // depositing collateral token
+            let amount: felt252 = scaled_amount.try_into().unwrap();
             amount.serialize(ref calldata);
 
             let dex_call_result = call_contract_syscall(
@@ -188,7 +203,7 @@ mod HypErc20DexCollateral {
             assert(dex_call_success, 'DEPOSIT_REJECTED');
 
             contract_state
-                .emit(DexDeposit { token: token_address, recipient, amount: amount_or_id });
+                .emit(DexDeposit { token: token_address, recipient, amount: scaled_amount });
         }
     }
 
@@ -207,20 +222,8 @@ mod HypErc20DexCollateral {
             let dex_address = self.dex.read();
             let token_address = self.collateral.wrapped_token.read().contract_address;
 
-            let mut calldata = ArrayTrait::new();
-            account.serialize(ref calldata);
-            token_address.serialize(ref calldata);
-
-            let balance_call_result = call_contract_syscall(
-                address: dex_address,
-                entry_point_selector: DEX_GET_TOKEN_ASSET_BALANCE_SELECTOR,
-                calldata: calldata.span(),
-            );
-            assert(balance_call_result.is_ok(), 'BALANCE_CALL_FAILED');
-
-            let mut balance_call_result_unwrapped = balance_call_result.unwrap();
-            let balance = Serde::<felt252>::deserialize(ref balance_call_result_unwrapped).unwrap();
-            balance.try_into().unwrap()
+            let dex_dispatcher = IParaclearDispatcher { contract_address: dex_address };
+            dex_dispatcher.get_token_asset_balance(account, token_address).try_into().unwrap()
         }
     }
 

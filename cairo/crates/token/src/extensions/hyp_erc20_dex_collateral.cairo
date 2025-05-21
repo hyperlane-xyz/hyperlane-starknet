@@ -22,7 +22,7 @@ mod HypErc20DexCollateral {
     use openzeppelin::token::erc20::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin::upgrades::interface::IUpgradeable;
     use openzeppelin::upgrades::upgradeable::UpgradeableComponent;
-    use starknet::ContractAddress;
+    use starknet::{ContractAddress, syscalls::call_contract_syscall};
     use token::components::{
         hyp_erc20_collateral_component::HypErc20CollateralComponent,
         token_router::{
@@ -30,6 +30,12 @@ mod HypErc20DexCollateral {
             TokenRouterComponent::{TokenRouterHooksTrait}, TokenRouterTransferRemoteHookDefaultImpl,
         },
     };
+
+    // NOTE: Starknet’s version of the Keccak hash function (denoted by sn_keccak)
+    //       is defined as the first 250 bits of Ethereum’s keccak256
+    // sn_keccak of selector for "deposit_on_behalf_of" function in the DEX contract
+    const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 =
+        152884417735717128974538630286950396387019428546378603946454937413393931990;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: MailboxclientComponent, storage: mailbox, event: MailBoxClientEvent);
@@ -70,10 +76,6 @@ mod HypErc20DexCollateral {
     // TokenRouter
     #[abi(embed_v0)]
     impl TokenRouterImpl = TokenRouterComponent::TokenRouterImpl<ContractState>;
-
-    pub mod Errors {
-        pub const DEPOSIT_REJECTED: felt252 = 'DEPOSIT_REJECTED';
-    }
 
     #[storage]
     struct Storage {
@@ -182,13 +184,23 @@ mod HypErc20DexCollateral {
             // Approve the DEX to spend the tokens
             token_dispatcher.approve(dex_address, amount_or_id);
 
-            assert(
-                dex_dispatcher
-                    .deposit_on_behalf_of(
-                        recipient, token_address, scaled_amount.try_into().unwrap(),
-                    ) == 0,
-                Errors::DEPOSIT_REJECTED,
+            let mut calldata = ArrayTrait::new();
+            recipient.serialize(ref calldata); // the actual recipient of the deposit
+            token_address.serialize(ref calldata); // depositing collateral token
+            let amount: felt252 = scaled_amount.try_into().unwrap();
+            amount.serialize(ref calldata);
+
+            let dex_call_result = call_contract_syscall(
+                address: dex_address,
+                entry_point_selector: DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR,
+                calldata: calldata.span(),
             );
+            assert(dex_call_result.is_ok(), 'DEPOSIT_FAILED');
+
+            let mut dex_call_result_unwrapped = dex_call_result.unwrap();
+            let dex_call_success = Serde::<bool>::deserialize(ref dex_call_result_unwrapped)
+                .unwrap();
+            assert(dex_call_success, 'DEPOSIT_REJECTED');
 
             contract_state
                 .emit(DexDeposit { token: token_address, recipient, amount: scaled_amount });

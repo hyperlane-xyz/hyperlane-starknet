@@ -54,7 +54,7 @@ fn setup_dex_collateral() -> DexSetup {
 
     // Deploy the mock DEX
     let mock_dex_contract = declare("MockParadexDex").unwrap().contract_class();
-    let (dex_address, _) = mock_dex_contract.deploy(@array![PARADEX_DEX_DECIMALS]).unwrap();
+    let (dex_address, _) = mock_dex_contract.deploy(@array![PARADEX_DEX_DECIMALS.into()]).unwrap();
     let dex = IMockParadexDexDispatcher { contract_address: dex_address };
 
     let hyp_erc20_collateral_contract = declare("HypErc20Collateral").unwrap().contract_class();

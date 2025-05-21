@@ -148,27 +148,8 @@ mod HypErc20DexCollateral {
         fn transfer_from_sender_hook(
             ref self: TokenRouterComponent::ComponentState<ContractState>, amount_or_id: u256,
         ) -> Bytes {
-            let mut contract_state = TokenRouterComponent::HasComponent::get_contract_mut(ref self);
-            let dex_address = contract_state.dex.read();
-            let token_address = contract_state.collateral.wrapped_token.read().contract_address;
-
-            // Get decimals for scaling
-            let token_dispatcher = ERC20ABIDispatcher { contract_address: token_address };
-            let token_decimals = token_dispatcher.decimals();
-
-            let dex_dispatcher = IParaclearDispatcher { contract_address: dex_address };
-            let dex_decimals: u8 = dex_dispatcher.decimals();
-
-            let scaled_amount = if token_decimals < dex_decimals {
-                amount_or_id / (10_u256.pow((token_decimals - dex_decimals).into()))
-            } else if token_decimals > dex_decimals {
-                amount_or_id * (10_u256.pow((dex_decimals - token_decimals).into()))
-            } else {
-                amount_or_id
-            };
-
             HypErc20CollateralComponent::TokenRouterHooksImpl::transfer_from_sender_hook(
-                ref self, scaled_amount,
+                ref self, amount_or_id,
             )
         }
 

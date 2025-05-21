@@ -45,8 +45,9 @@ fn setup_dex_collateral() -> DexSetup {
     DECIMALS.serialize(ref calldata);
     let (paradex_usdc, _) = contract.deploy(@calldata).unwrap();
     let paradex_usdc = ITestERC20Dispatcher { contract_address: paradex_usdc };
-    // mint 1000 to this contract
+
     paradex_usdc.mint(starknet::get_contract_address(), 1000000 * E18);
+    paradex_usdc.mint(ALICE(), TRANSFER_AMT);
     paradex_usdc.approve(paradex_usdc.contract_address, 1000000 * E18);
 
     // Deploy the mock DEX
@@ -104,7 +105,7 @@ fn setup_dex_collateral() -> DexSetup {
 }
 
 // perform transfer from local
-fn perform_remote_transfer_dex(setup: @DexSetup, msg_value: u256, amount: u256, approve: bool) {
+fn perform_local_transfer_dex(setup: @DexSetup, msg_value: u256, amount: u256, approve: bool) {
     // Approve tokens if needed
     if approve {
         cheat_caller_address(
@@ -122,6 +123,24 @@ fn perform_remote_transfer_dex(setup: @DexSetup, msg_value: u256, amount: u256, 
 
     process_transfers_dex(setup, BOB(), amount);
 }
+
+fn perform_remote_transfer_dex(setup: @DexSetup, msg_value: u256, amount: u256, approve: bool) {
+    // Approve tokens if needed
+    if approve {
+        cheat_caller_address(
+            (*setup).paradex_usdc.contract_address, ALICE(), CheatSpan::TargetCalls(1),
+        );
+        (*setup).paradex_usdc.approve((*setup).remote_dex_collateral.contract_address, amount);
+    }
+
+    cheat_caller_address((*setup).remote_dex_collateral.contract_address, ALICE(), CheatSpan::TargetCalls(1));
+    let bob_felt: felt252 = BOB().into();
+    let bob_address: u256 = bob_felt.into();
+    (*setup)
+        .remote_dex_collateral
+        .transfer_remote(ORIGIN, bob_address, amount, msg_value, Option::None, Option::None);
+}
+
 
 // process handle on remote
 fn process_transfers_dex(setup: @DexSetup, recipient: ContractAddress, amount: u256) {
@@ -178,13 +197,13 @@ fn test_dex_decimals() {
 }
 
 #[test]
-fn test_remote_transfer_dex() {
+fn test_remote_transfer_to_dex() {
     let setup = setup_dex_collateral();
     let mut spy = spy_events();
 
     let balance_before = setup.setup.primary_token.balance_of(ALICE());
 
-    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+    perform_local_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
     assert_eq!(
         setup.setup.primary_token.balance_of(ALICE()),
@@ -222,8 +241,23 @@ fn test_remote_transfer_dex() {
 }
 
 #[test]
+fn test_remote_transfer_from_dex() {
+    let setup = setup_dex_collateral();
+
+    let balance_before = setup.paradex_usdc.balance_of(ALICE());
+
+    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+
+    assert_eq!(
+        setup.paradex_usdc.balance_of(ALICE()),
+        balance_before - TRANSFER_AMT,
+        "Incorrect balance after transfer",
+    );
+}
+
+#[test]
 #[fuzzer]
-fn test_fuzz_remote_transfer_scaling(mut paraclear_decimal: u8) {
+fn test_fuzz_remote_transfer_to_dex_scaling(mut paraclear_decimal: u8) {
     paraclear_decimal = paraclear_decimal % 24 + 1;
 
     let mut spy = spy_events();
@@ -233,7 +267,7 @@ fn test_fuzz_remote_transfer_scaling(mut paraclear_decimal: u8) {
     let expected_amount = calc_expected_amt(@setup, TRANSFER_AMT);
     setup.paradex_usdc.mint(setup.remote_dex_collateral.contract_address, expected_amount);
 
-    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+    perform_local_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
     spy
         .assert_emitted(
@@ -256,7 +290,7 @@ fn test_fuzz_remote_transfer_scaling(mut paraclear_decimal: u8) {
 #[should_panic]
 fn test_remote_transfer_dex_invalid_allowance() {
     let setup = setup_dex_collateral();
-    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, false);
+    perform_local_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, false);
 }
 
 #[test]
@@ -278,7 +312,7 @@ fn test_dex_collateral_with_custom_gas_config() {
     );
     eth_dispatcher.approve(setup.collateral.contract_address, GAS_LIMIT * gas_price);
 
-    perform_remote_transfer_dex(@setup, REQUIRED_VALUE + GAS_LIMIT * gas_price, TRANSFER_AMT, true);
+    perform_local_transfer_dex(@setup, REQUIRED_VALUE + GAS_LIMIT * gas_price, TRANSFER_AMT, true);
 
     assert_eq!(
         setup.collateral.balance_of(ALICE()),
@@ -298,7 +332,7 @@ fn test_dex_collateral_with_custom_gas_config() {
 #[test]
 fn test_balance_on_behalf_of() {
     let setup = setup_dex_collateral();
-    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+    perform_local_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
     let dex_collateral = IHypErc20DexCollateralDispatcher {
         contract_address: setup.remote_dex_collateral.contract_address,
@@ -317,7 +351,7 @@ fn test_fuzz_balance_on_behalf_of_scaling(mut paraclear_decimal: u8) {
     let expected_amount = calc_expected_amt(@setup, TRANSFER_AMT);
     setup.paradex_usdc.mint(setup.remote_dex_collateral.contract_address, expected_amount);
 
-    perform_remote_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
+    perform_local_transfer_dex(@setup, REQUIRED_VALUE, TRANSFER_AMT, true);
 
     let dex_collateral = IHypErc20DexCollateralDispatcher {
         contract_address: setup.remote_dex_collateral.contract_address,

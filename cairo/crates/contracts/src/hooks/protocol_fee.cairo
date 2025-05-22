@@ -132,6 +132,10 @@ pub mod protocol_fee {
             self._set_protocol_fee(_protocol_fee);
         }
 
+        fn get_max_protocol_fee(self: @ContractState) -> u256 {
+            self.max_protocol_fee.read()
+        }
+
         fn get_beneficiary(self: @ContractState) -> ContractAddress {
             self.beneficiary.read()
         }

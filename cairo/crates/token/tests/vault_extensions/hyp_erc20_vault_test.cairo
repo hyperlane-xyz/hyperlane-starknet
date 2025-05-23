@@ -4,6 +4,9 @@ use mocks::erc4626_yield_sharing_mock::{
 };
 use mocks::mock_mailbox::{IMockMailboxDispatcher, IMockMailboxDispatcherTrait};
 use mocks::test_erc20::ITestERC20DispatcherTrait;
+use openzeppelin::token::erc20::interface::{
+    IERC20CamelOnlyDispatcher, IERC20CamelOnlyDispatcherTrait,
+};
 use snforge_std::{
     CheatSpan, ContractClassTrait, DeclareResultTrait, cheat_caller_address, declare,
     start_cheat_caller_address_global, stop_cheat_caller_address_global,
@@ -14,7 +17,6 @@ use super::super::hyp_erc20::common::{
     ALICE, BOB, CAROL, DANIEL, DESTINATION, E18, IHypERC20TestDispatcherTrait, ORIGIN, Setup,
     TOTAL_SUPPLY, TRANSFER_AMT, connect_routers,
 };
-use openzeppelin::token::erc20::interface::{IERC20CamelOnlyDispatcher, IERC20CamelOnlyDispatcherTrait};
 use token::components::token_router::{ITokenRouterDispatcher, ITokenRouterDispatcherTrait};
 use token::extensions::{
     hyp_erc20_vault::{IHypErc20VaultDispatcher, IHypErc20VaultDispatcherTrait},
@@ -86,13 +88,15 @@ fn setup_vault() -> (
         )
         .unwrap();
 
+    const NET_TOTAL_SUPPLY: u256 = 0;
+
     let dummy_name: ByteArray = "Dummy Name";
     let dummy_symbol: ByteArray = "DUM";
     let contract = declare("HypErc20Vault").unwrap().contract_class();
     let mut calldata: Array<felt252> = array![];
     setup.primary_token.decimals().serialize(ref calldata);
     setup.remote_mailbox.contract_address.serialize(ref calldata);
-    TOTAL_SUPPLY.serialize(ref calldata);
+    NET_TOTAL_SUPPLY.serialize(ref calldata);
     dummy_name.serialize(ref calldata);
     dummy_symbol.serialize(ref calldata);
     setup.local_mailbox.get_local_domain().serialize(ref calldata);
@@ -139,7 +143,7 @@ fn setup_vault() -> (
     )
 }
 
-// #[test]
+#[test]
 fn test_collateral_domain() {
     let (_, local_rebasing_token, remote_rebasing_token, _, _, _) = setup_vault();
     assert_eq!(
@@ -150,7 +154,7 @@ fn test_collateral_domain() {
     );
 }
 
-// #[test]
+#[test]
 fn test_remote_transfer_rebase_after() {
     let (
         mut setup, mut local_rebasing_token, remote_rebasing_token, _, mut yield_sharing_vault, _,
@@ -173,7 +177,7 @@ fn test_remote_transfer_rebase_after() {
     );
 }
 
-// #[test]
+#[test]
 fn test_rebase_with_transfer() {
     let (
         mut setup, mut local_rebasing_token, remote_rebasing_token, _, mut yield_sharing_vault, _,
@@ -197,33 +201,32 @@ fn test_rebase_with_transfer() {
     );
 }
 
-// #[test]
+#[test]
 fn test_total_supply_after_rebase() {
     let (
-        mut setup, mut local_rebasing_token, remote_rebasing_token, _, mut yield_sharing_vault, _
+        mut setup, mut local_rebasing_token, remote_rebasing_token, _, mut yield_sharing_vault, _,
     ) =
         setup_vault();
-    
-    // Record initial total supply
     let initial_total_supply = remote_rebasing_token.total_supply();
-    
-    // Perform a transfer to the remote domain
+
     _perform_remote_transfer_without_expectation(
-        @setup, local_rebasing_token.contract_address, 0, TRANSFER_AMT
+        @setup, local_rebasing_token.contract_address, 0, TRANSFER_AMT,
     );
-    
-    // Accrue yield to the vault
+
     _accrue_yield(@setup, yield_sharing_vault.contract_address);
     local_rebasing_token.rebase(DESTINATION, 0);
-    
-    // After rebase, the total supply should increase by the discounted yield
-    let expected_total_supply = initial_total_supply + _discounted_yield(yield_sharing_vault);
+    setup.remote_mailbox.process_next_inbound_message();
+
+    let expected_total_supply = initial_total_supply
+        + TRANSFER_AMT
+        + _discounted_yield(yield_sharing_vault);
     let actual_total_supply = remote_rebasing_token.total_supply();
 
-    let remote_rebasing_token_camel_only = IERC20CamelOnlyDispatcher {  contract_address: remote_rebasing_token.contract_address 
+    let remote_rebasing_token_camel_only = IERC20CamelOnlyDispatcher {
+        contract_address: remote_rebasing_token.contract_address,
     };
     let actual_totalSupply = remote_rebasing_token_camel_only.totalSupply();
-    
+
     assert_approx_eq_rel(actual_total_supply, expected_total_supply, E14);
     assert_eq!(actual_totalSupply, actual_total_supply);
 }
@@ -231,33 +234,38 @@ fn test_total_supply_after_rebase() {
 #[test]
 fn test_approval_after_rebase() {
     let (
-        mut setup, mut local_rebasing_token, remote_rebasing_token, _, mut yield_sharing_vault, _
+        mut setup, mut local_rebasing_token, remote_rebasing_token, _, mut yield_sharing_vault, _,
     ) =
         setup_vault();
-    
-    // perform a transfer to the remote domain
+
     _perform_remote_transfer_without_expectation(
-        @setup, local_rebasing_token.contract_address, 0, TRANSFER_AMT
+        @setup, local_rebasing_token.contract_address, 0, TRANSFER_AMT,
     );
 
     // approve before rebase
-    cheat_caller_address(remote_rebasing_token.contract_address, ALICE(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(
+        remote_rebasing_token.contract_address, ALICE(), CheatSpan::TargetCalls(1),
+    );
     remote_rebasing_token.approve(yield_sharing_vault.contract_address, TRANSFER_AMT);
     let allowance = remote_rebasing_token.allowance(ALICE(), yield_sharing_vault.contract_address);
-    
+
     // accrue yield to the vault and rebase
     _accrue_yield(@setup, yield_sharing_vault.contract_address);
     local_rebasing_token.rebase(DESTINATION, 0);
     setup.remote_mailbox.process_next_inbound_message();
-    
+
     // after rebase, the allowance should reflect the additional yield
-    let new_allowance = remote_rebasing_token.allowance(ALICE(), yield_sharing_vault.contract_address);
+    let new_allowance = remote_rebasing_token
+        .allowance(ALICE(), yield_sharing_vault.contract_address);
     assert_eq!(new_allowance, allowance + _discounted_yield(yield_sharing_vault));
 
     // if you approve again, the allowance should reflect the intended amount
-    cheat_caller_address(remote_rebasing_token.contract_address, ALICE(), CheatSpan::TargetCalls(1));
+    cheat_caller_address(
+        remote_rebasing_token.contract_address, ALICE(), CheatSpan::TargetCalls(1),
+    );
     remote_rebasing_token.approve(yield_sharing_vault.contract_address, TRANSFER_AMT);
-    let updated_allowance = remote_rebasing_token.allowance(ALICE(), yield_sharing_vault.contract_address);
+    let updated_allowance = remote_rebasing_token
+        .allowance(ALICE(), yield_sharing_vault.contract_address);
     assert_approx_eq_rel(allowance, updated_allowance, E10);
 }
 
@@ -310,7 +318,7 @@ fn test_synthetic_transfer_from_with_rebase() {
     stop_cheat_caller_address_global();
 
     remote_rebasing_token.transfer_from(BOB(), CAROL(), TRANSFER_AMT);
-    
+
     assert_approx_eq_rel(
         remote_rebasing_token.balance_of(BOB()),
         TRANSFER_AMT + _discounted_yield(yield_sharing_vault),
@@ -319,7 +327,7 @@ fn test_synthetic_transfer_from_with_rebase() {
     assert_approx_eq_rel(remote_rebasing_token.balance_of(CAROL()), TRANSFER_AMT, E14);
 }
 
-// #[test]
+#[test]
 fn test_withdrawal_without_yield() {
     let (mut setup, mut local_rebasing_token, remote_rebasing_token, _, _, _) = setup_vault();
     _perform_remote_transfer_without_expectation(

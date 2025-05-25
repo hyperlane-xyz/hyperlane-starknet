@@ -11,6 +11,7 @@ pub mod hooks {
     pub mod test_domain_routing_hook;
     pub mod test_merkle_tree_hook;
     pub mod test_protocol_fee;
+    pub mod test_interchain_gas_paymaster;
 }
 pub mod routing {
     pub mod test_default_fallback_routing_ism;

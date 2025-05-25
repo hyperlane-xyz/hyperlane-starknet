@@ -1,5 +1,6 @@
 use alexandria_bytes::Bytes;
 use contracts::hooks::merkle_tree_hook::merkle_tree_hook::Tree;
+use contracts::hooks::interchain_gas_paymaster::interchain_gas_paymaster::{GasParam,GasConfig};
 use contracts::libs::message::Message;
 use core::array::ArrayTrait;
 use starknet::ContractAddress;
@@ -167,13 +168,23 @@ pub trait IInterchainGasPaymaster<TContractState> {
         _destination_domain: u32,
         _gas_amount: u256,
         _payment: u256,
+        _refund_address: ContractAddress
     );
 
     fn quote_gas_payment(
-        ref self: TContractState, _destination_domain: u32, _gas_amount: u256,
+        ref self: TContractState, _destination_domain: u32, _gas_amount: u256
     ) -> u256;
-}
 
+    fn set_destination_gas_configs(ref self: TContractState, configs: Array<GasParam>);
+
+    fn set_beneficiary(ref self: TContractState, beneficiary: ContractAddress);
+    
+    fn claim(ref self: TContractState) -> u256;
+    
+    fn get_gas_config(self: @TContractState, _destination_domain: u32) -> GasConfig;
+    
+    fn get_beneficiary(self: @TContractState) -> ContractAddress;
+}
 
 #[starknet::interface]
 pub trait IDefaultFallbackRoutingIsm<TContractState> {

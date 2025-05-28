@@ -21,8 +21,8 @@ alexandria_storage = "0.4.0"
 alexandria_data_structures = "0.4.0"
 alexandria_math = "0.4.0"
 openzeppelin = "0.20.0"
-snforge_std = "0.38.3"
-snforge_scarb_plugin = "0.38.3"
+snforge_std = "0.44.0"
+snforge_scarb_plugin = "0.44.0"
 
 [dev-dependencies]
 snforge_std.workspace = true

@@ -10,6 +10,7 @@ jobs:
     env:
       working-directory: ./cairo
       SCARB_VERSION: "2.10.1"
+      SNFOUNDRY_VERSION: "0.38.3"
     steps:
       - uses: actions/checkout@v3
 
@@ -17,9 +18,9 @@ jobs:
         with:
           scarb-version: ${{ env.SCARB_VERSION }}
 
-      - uses: foundry-rs/setup-snfoundry@v4
+      - uses: foundry-rs/setup-snfoundry@v3
         with:
-          tool-versions: cairo/.tool-versions
+          starknet-foundry-version: ${{ env.SNFOUNDRY_VERSION }}
 
       - name: Format check
         working-directory: ${{ env.working-directory }}
@@ -45,6 +46,7 @@ jobs:
     env:
       working-directory: ./xerc20
       SCARB_VERSION: "2.10.1"
+      SNFOUNDRY_VERSION: "0.38.3"
     steps:
       - uses: actions/checkout@v3
 
@@ -54,7 +56,7 @@ jobs:
 
       - uses: foundry-rs/setup-snfoundry@v4
         with:
-          tool-versions: cairo/.tool-versions
+          starknet-foundry-version: ${{ env.SNFOUNDRY_VERSION }}
 
       - name: Format check
         working-directory: ${{ env.working-directory }}

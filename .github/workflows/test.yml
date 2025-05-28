@@ -54,7 +54,7 @@ jobs:
         with:
           scarb-version: ${{ env.SCARB_VERSION }}
 
-      - uses: foundry-rs/setup-snfoundry@v4
+      - uses: foundry-rs/setup-snfoundry@v3
         with:
           starknet-foundry-version: ${{ env.SNFOUNDRY_VERSION }}
 

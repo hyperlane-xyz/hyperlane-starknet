@@ -147,8 +147,6 @@ where
         )
         .send()
         .await?;
-
-    println!("\nDispatch res: {:?}", dispatch_res);
     let strk_provider: &AnyProvider = from.acc_owner.provider();
     let dispatch_receipt = strk_provider
         .get_transaction_receipt(dispatch_res.transaction_hash)

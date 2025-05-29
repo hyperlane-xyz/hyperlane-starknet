@@ -173,8 +173,6 @@ where
         }
     };
 
-    println!("\nDispatched: {:?}", dispatch);
-
     let process_tx = to
         .core
         .mailbox

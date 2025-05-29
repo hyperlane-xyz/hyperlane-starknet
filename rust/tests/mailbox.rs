@@ -14,8 +14,10 @@ use ethers::{
 };
 use starknet::{
     accounts::{Account, ConnectedAccount},
-    core::types::{Event, FieldElement, MaybePendingTransactionReceipt},
-    core::utils::get_selector_from_name,
+    core::{
+        types::{Event, Felt, ReceiptBlock, TransactionReceiptWithBlockInfo},
+        utils::get_selector_from_name,
+    },
     macros::felt,
     providers::{AnyProvider, Provider},
 };
@@ -150,22 +152,26 @@ where
         .get_transaction_receipt(dispatch_res.transaction_hash)
         .await?;
 
-    let dispatch = match dispatch_receipt {
-        MaybePendingTransactionReceipt::PendingReceipt(pending_receipt) => match pending_receipt {
-            starknet::core::types::PendingTransactionReceipt::Invoke(receipt) => {
-                parse_dispatch_from_res(&receipt.events)
+    let dispatch = match dispatch_receipt.block {
+        ReceiptBlock::Pending => {
+            // pending receipt
+            match &dispatch_receipt.receipt {
+                starknet::core::types::TransactionReceipt::Invoke(invoke_receipt) => {
+                    parse_dispatch_from_res(&invoke_receipt.events)
+                }
+                _ => return Err(eyre::eyre!("Unexpected pending receipt type")),
             }
-            _ => return Err(eyre::eyre!("Unexpected receipt type, check the hash")),
-        },
-        MaybePendingTransactionReceipt::Receipt(receipt) => match receipt {
-            starknet::core::types::TransactionReceipt::Invoke(receipt) => {
-                parse_dispatch_from_res(&receipt.events)
+        }
+        ReceiptBlock::Block { .. } => {
+            // confirmed receipt
+            match &dispatch_receipt.receipt {
+                starknet::core::types::TransactionReceipt::Invoke(invoke_receipt) => {
+                    parse_dispatch_from_res(&invoke_receipt.events)
+                }
+                _ => return Err(eyre::eyre!("Unexpected confirmed receipt type")),
             }
-            _ => return Err(eyre::eyre!("Unexpected receipt type, check the hash")),
-        },
+        }
     };
-
-    println!("\nDispatched: {:?}", dispatch);
 
     let process_tx = to
         .core
@@ -179,7 +185,7 @@ where
 async fn send_msg_evm_to_strk<M, S>(
     from: &eth::Env<M, S>,
     to: &strk::Env,
-) -> eyre::Result<MaybePendingTransactionReceipt>
+) -> eyre::Result<TransactionReceiptWithBlockInfo>
 where
     M: Middleware + 'static,
     S: Signer + 'static,
@@ -199,14 +205,9 @@ where
         .dispatch_0(DOMAIN_STRK, receiver, msg_body.into());
     let dispatch_res = dispatch_tx_call.send().await?.await?.unwrap();
     let dispatch: DispatchFilter = parse_log(dispatch_res.logs[0].clone())?;
-    let dispatch_id: DispatchIdFilter = parse_log(dispatch_res.logs[1].clone())?;
 
     // dispatch
     let mailbox_contract = mailbox::new(to.core.mailbox, &to.acc_tester);
-    println!(
-        "message: {:?}",
-        eth_dispatch_event_to_strk_message(dispatch.clone())
-    );
     let process_res = mailbox_contract
         .process(
             &Bytes {

@@ -132,7 +132,6 @@ where
     let mut receiver = [0u8; 32];
     receiver[12..].copy_from_slice(&to.core.msg_receiver.address().0);
     let _sender = from.acc_tester.address();
-    println!("Account sender {}", _sender);
     let msg_body = b"hello world";
 
     // dispatch
@@ -176,8 +175,6 @@ where
         }
     };
 
-    // println!("\nDispatched: {:?}", dispatch);
-
     let process_tx = to
         .core
         .mailbox
@@ -210,14 +207,9 @@ where
         .dispatch_0(DOMAIN_STRK, receiver, msg_body.into());
     let dispatch_res = dispatch_tx_call.send().await?.await?.unwrap();
     let dispatch: DispatchFilter = parse_log(dispatch_res.logs[0].clone())?;
-    let dispatch_id: DispatchIdFilter = parse_log(dispatch_res.logs[1].clone())?;
 
     // dispatch
     let mailbox_contract = mailbox::new(to.core.mailbox, &to.acc_tester);
-    // println!(
-    //     "message: {:?}",
-    //     eth_dispatch_event_to_strk_message(dispatch.clone())
-    // );
     let process_res = mailbox_contract
         .process(
             &Bytes {

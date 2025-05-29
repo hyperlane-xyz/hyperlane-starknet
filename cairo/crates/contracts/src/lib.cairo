@@ -48,6 +48,3 @@ pub mod utils {
     pub mod store_arrays;
     pub mod utils;
 }
-pub mod paradex {
-    pub mod interface;
-}

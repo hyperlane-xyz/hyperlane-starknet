@@ -132,7 +132,6 @@ where
     let mut receiver = [0u8; 32];
     receiver[12..].copy_from_slice(&to.core.msg_receiver.address().0);
     let _sender = from.acc_tester.address();
-    println!("Account sender {}", _sender);
     let msg_body = b"hello world";
 
     // dispatch
@@ -148,8 +147,6 @@ where
         )
         .send()
         .await?;
-
-    println!("\nDispatch res: {:?}", dispatch_res);
     let strk_provider: &AnyProvider = from.acc_owner.provider();
     let dispatch_receipt = strk_provider
         .get_transaction_receipt(dispatch_res.transaction_hash)

@@ -207,14 +207,9 @@ where
         .dispatch_0(DOMAIN_STRK, receiver, msg_body.into());
     let dispatch_res = dispatch_tx_call.send().await?.await?.unwrap();
     let dispatch: DispatchFilter = parse_log(dispatch_res.logs[0].clone())?;
-    let dispatch_id: DispatchIdFilter = parse_log(dispatch_res.logs[1].clone())?;
 
     // dispatch
     let mailbox_contract = mailbox::new(to.core.mailbox, &to.acc_tester);
-    println!(
-        "message: {:?}",
-        eth_dispatch_event_to_strk_message(dispatch.clone())
-    );
     let process_res = mailbox_contract
         .process(
             &Bytes {

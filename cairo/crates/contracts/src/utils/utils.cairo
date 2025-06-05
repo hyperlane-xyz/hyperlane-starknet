@@ -1,5 +1,5 @@
-use starknet::ContractAddress;
 use core::num::traits::Pow;
+use starknet::ContractAddress;
 
 pub impl U256TryIntoContractAddress of TryInto<u256, ContractAddress> {
     fn try_into(self: u256) -> Option<ContractAddress> {
@@ -31,16 +31,20 @@ mod tests {
         let source_decimals = 18;
         let target_decimals = 6;
         let expected = 1000 * 10_u256.pow(6);
-        assert(scale_amount(amount, source_decimals, target_decimals) == expected, 'scale down failed');
+        assert(
+            scale_amount(amount, source_decimals, target_decimals) == expected, 'scale down failed',
+        );
     }
 
     #[test]
     fn test_scale_amount_up() {
-        let amount = 1000 * 10_u256.pow(6); 
+        let amount = 1000 * 10_u256.pow(6);
         let source_decimals = 6;
         let target_decimals = 18;
         let expected = 1000 * 10_u256.pow(18);
-        assert(scale_amount(amount, source_decimals, target_decimals) == expected, 'scale up failed');
+        assert(
+            scale_amount(amount, source_decimals, target_decimals) == expected, 'scale up failed',
+        );
     }
 
     #[test]
@@ -48,7 +52,10 @@ mod tests {
         let amount = 1000 * 10_u256.pow(18);
         let source_decimals = 18;
         let target_decimals = 18;
-        assert(scale_amount(amount, source_decimals, target_decimals) == amount, 'same decimals failed');
+        assert(
+            scale_amount(amount, source_decimals, target_decimals) == amount,
+            'same decimals failed',
+        );
     }
 
     #[test]
@@ -57,7 +64,6 @@ mod tests {
         let source_decimals = 18;
         let target_decimals = 6;
         assert(scale_amount(amount, source_decimals, target_decimals) == 0, 'zero amount failed');
-    } 
+    }
 }
-
 

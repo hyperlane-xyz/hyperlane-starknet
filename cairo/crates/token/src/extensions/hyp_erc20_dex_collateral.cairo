@@ -16,8 +16,8 @@ mod HypErc20DexCollateral {
     use contracts::client::router_component::RouterComponent;
     use contracts::paradex::interface::{IParaclearDispatcher, IParaclearDispatcherTrait};
     use contracts::utils::utils::U256TryIntoContractAddress;
+    use contracts::utils::utils::scale_amount;
     use core::array::ArrayTrait;
-    use core::num::traits::Pow;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use openzeppelin::upgrades::interface::IUpgradeable;
@@ -30,12 +30,6 @@ mod HypErc20DexCollateral {
             TokenRouterComponent::{TokenRouterHooksTrait}, TokenRouterTransferRemoteHookDefaultImpl,
         },
     };
-
-    // NOTE: Starknet’s version of the Keccak hash function (denoted by sn_keccak)
-    //       is defined as the first 250 bits of Ethereum’s keccak256
-    // sn_keccak of selector for "deposit_on_behalf_of" function in the DEX contract
-    const DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR: felt252 =
-        152884417735717128974538630286950396387019428546378603946454937413393931990;
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
     component!(path: MailboxclientComponent, storage: mailbox, event: MailBoxClientEvent);
@@ -173,17 +167,12 @@ mod HypErc20DexCollateral {
             let dex_decimals: u8 = dex_dispatcher.decimals();
 
             // Scale amount from token decimals to DEX decimals
-            let scaled_amount = if token_decimals > dex_decimals {
-                amount_or_id / (10_u256.pow((token_decimals - dex_decimals).into()))
-            } else if token_decimals < dex_decimals {
-                amount_or_id * (10_u256.pow((dex_decimals - token_decimals).into()))
-            } else {
-                amount_or_id
-            };
+            let scaled_amount = scale_amount(amount_or_id, token_decimals, dex_decimals);
 
-            // Approve the DEX to spend the tokens
+            // Approve the DEX to spend the tokens (the original amount)
             token_dispatcher.approve(dex_address, amount_or_id);
 
+            // Deposit the tokens (the scaled amount)
             let amount: felt252 = scaled_amount.try_into().unwrap();
             dex_dispatcher.deposit_on_behalf_of(recipient, token_address, amount);
 

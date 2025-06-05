@@ -184,23 +184,8 @@ mod HypErc20DexCollateral {
             // Approve the DEX to spend the tokens
             token_dispatcher.approve(dex_address, amount_or_id);
 
-            let mut calldata = ArrayTrait::new();
-            recipient.serialize(ref calldata); // the actual recipient of the deposit
-            token_address.serialize(ref calldata); // depositing collateral token
             let amount: felt252 = scaled_amount.try_into().unwrap();
-            amount.serialize(ref calldata);
-
-            let dex_call_result = call_contract_syscall(
-                address: dex_address,
-                entry_point_selector: DEX_DEPOSIT_ON_BEHALF_OF_SELECTOR,
-                calldata: calldata.span(),
-            );
-            assert(dex_call_result.is_ok(), 'DEPOSIT_FAILED');
-
-            let mut dex_call_result_unwrapped = dex_call_result.unwrap();
-            let dex_call_success = Serde::<bool>::deserialize(ref dex_call_result_unwrapped)
-                .unwrap();
-            assert(dex_call_success, 'DEPOSIT_REJECTED');
+            dex_dispatcher.deposit_on_behalf_of(recipient, token_address, amount);
 
             contract_state
                 .emit(DexDeposit { token: token_address, recipient, amount: scaled_amount });

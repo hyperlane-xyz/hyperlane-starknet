@@ -166,13 +166,11 @@ pub trait IInterchainGasPaymaster<TContractState> {
         ref self: TContractState,
         _message_id: u256,
         _destination_domain: u32,
-        _gas_amount: u256,
-        _payment: u256,
-        _refund_address: ContractAddress
+        _gas_limit: u256
     );
 
     fn quote_gas_payment(
-        ref self: TContractState, _destination_domain: u32, _gas_amount: u256
+        ref self: TContractState, _destination_domain: u32, _gas_limit: u256
     ) -> u256;
 
     fn set_destination_gas_configs(ref self: TContractState, configs: Array<GasParam>);

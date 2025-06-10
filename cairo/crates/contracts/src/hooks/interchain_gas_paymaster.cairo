@@ -1,25 +1,22 @@
-// SPDX-License-Identifier: MIT OR Apache-2.0
-
 #[starknet::contract]
 pub mod interchain_gas_paymaster {
     // IMPORTS
-    use core::array::ArrayTrait;
     use alexandria_bytes::{Bytes, BytesTrait};
-    use contracts::interfaces::{
-        ETH_ADDRESS, IInterchainGasPaymaster,
-        IPostDispatchHook, Types,
-    };
     use contracts::hooks::libs::standard_hook_metadata::standard_hook_metadata::{
         StandardHookMetadata, VARIANT,
     };
+    use contracts::interfaces::{IInterchainGasPaymaster, IPostDispatchHook, Types};
     use contracts::libs::message::{Message, MessageTrait};
+    use core::array::ArrayTrait;
     use openzeppelin::access::ownable::OwnableComponent;
     use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
     use starknet::storage::{
         Map, StorageMapReadAccess, StorageMapWriteAccess, StoragePointerReadAccess,
         StoragePointerWriteAccess,
     };
-    use starknet::{ContractAddress, get_caller_address, contract_address_const, get_contract_address};
+    use starknet::{
+        ContractAddress, contract_address_const, get_caller_address, get_contract_address,
+    };
 
     component!(path: OwnableComponent, storage: ownable, event: OwnableEvent);
 
@@ -55,6 +52,8 @@ pub mod interchain_gas_paymaster {
         gas_configs: Map<u32, GasConfig>,
         /// Beneficiary that can withdraw collected payments
         beneficiary: ContractAddress,
+        /// Token address used for gas payments
+        fee_token: ContractAddress,
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
     }
@@ -66,7 +65,6 @@ pub mod interchain_gas_paymaster {
         DestinationGasConfigSet: DestinationGasConfigSet,
         BeneficiarySet: BeneficiarySet,
         GasPayment: GasPayment,
-        GasRefund: GasRefund,
         TokensClaimed: TokensClaimed,
         #[flat]
         OwnableEvent: OwnableComponent::Event,
@@ -89,14 +87,8 @@ pub mod interchain_gas_paymaster {
     pub struct GasPayment {
         pub message_id: u256,
         pub destination_domain: u32,
-        pub gas_amount: u256,
+        pub gas_limit: u256,
         pub payment: u256,
-    }
-
-    #[derive(starknet::Event, Drop)]
-    pub struct GasRefund {
-        pub refund_address: ContractAddress,
-        pub amount: u256,
     }
 
     #[derive(starknet::Event, Drop)]
@@ -107,21 +99,22 @@ pub mod interchain_gas_paymaster {
 
     // ERRORS
     pub mod Errors {
-        pub const INSUFFICIENT_PAYMENT: felt252 = 'IGP: insufficient payment';
         pub const CONFIG_NOT_FOUND: felt252 = 'IGP: conf not found for domain';
         pub const INVALID_METADATA: felt252 = 'IGP: invalid metadata';
         pub const ZERO_BENEFICARY: felt252 = 'IGP: zero beneficiary';
-        pub const ZERO_REFUND_ADDRESS: felt252 = 'IGP: zero refund address';
-        pub const REFUND_FAILED: felt252 = 'IGP: refund failed';
-        pub const NOT_BENEFICIARY: felt252 = 'IGP: not beneficiary';
-        pub const TRANSFER_FAILED: felt252 = 'IGP: transfer failed';
     }
 
     // CONSTRUCTOR
     #[constructor]
-    fn constructor(ref self: ContractState, owner: ContractAddress, beneficiary: ContractAddress) {
+    fn constructor(
+        ref self: ContractState,
+        owner: ContractAddress,
+        beneficiary: ContractAddress,
+        token_address: ContractAddress,
+    ) {
         self.ownable.initializer(owner);
         self._set_beneficiary(beneficiary);
+        self.fee_token.write(token_address);
     }
 
     // IPostDispatchHook IMPLEMENTATION
@@ -141,7 +134,8 @@ pub mod interchain_gas_paymaster {
         ///
         /// Whether the hook supports the given metadata format
         fn supports_metadata(self: @ContractState, _metadata: Bytes) -> bool {
-            _metadata.size() == 0 || StandardHookMetadata::variant(_metadata.clone()) == VARIANT.into()
+            _metadata.size() == 0
+                || StandardHookMetadata::variant(_metadata.clone()) == VARIANT.into()
         }
 
         /// Post action after a message is dispatched via the Mailbox
@@ -152,10 +146,7 @@ pub mod interchain_gas_paymaster {
         /// * `_message` - the message passed from the Mailbox.dispatch() call
         /// * `_fee_amount` - the payment provided for sending the message
         fn post_dispatch(
-            ref self: ContractState,
-            _metadata: Bytes,
-            _message: Message,
-            _fee_amount: u256,
+            ref self: ContractState, _metadata: Bytes, _message: Message, _fee_amount: u256,
         ) {
             assert(self.supports_metadata(_metadata.clone()), Errors::INVALID_METADATA);
             self._post_dispatch(_metadata, _message, _fee_amount);
@@ -174,16 +165,9 @@ pub mod interchain_gas_paymaster {
         fn quote_dispatch(ref self: ContractState, _metadata: Bytes, _message: Message) -> u256 {
             assert(self.supports_metadata(_metadata.clone()), Errors::INVALID_METADATA);
 
-            let gas_limit: u256 = match _metadata.size() {
-                0 => DEFAULT_GAS_USAGE,
-                _ => {
-                    assert(
-                        StandardHookMetadata::variant(_metadata.clone()) == VARIANT.into(),
-                        Errors::INVALID_METADATA,
-                    );
-                    StandardHookMetadata::gas_limit(_metadata, DEFAULT_GAS_USAGE)
-                },
-            };
+            let gas_limit: u256 = StandardHookMetadata::gas_limit(
+                _metadata.clone(), DEFAULT_GAS_USAGE,
+            );
             let destination_domain = _message.destination;
             self.quote_gas_payment(destination_domain, gas_limit)
         }
@@ -192,60 +176,49 @@ pub mod interchain_gas_paymaster {
     // IInterchainGasPaymaster IMPLEMENTATION
     #[abi(embed_v0)]
     impl IInterchainGasPaymasterImpl of IInterchainGasPaymaster<ContractState> {
-        /// Pays `payment` native tokens (ERC20 ETH token) for gas.
+        /// Pays fee token for gas.
         ///
         /// # Arguments
         ///
         /// * `_message_id` - ID of the message to pay for
         /// * `_destination_domain` - Domain ID of the destination chain
-        /// * `_gas_amount` - Amount of gas to pay for on the destination chain
-        /// * `_payment` - Amount of native tokens to pay
-        /// * `_refund_address` - Address to refund any overpayment
+        /// * `_gas_limit` - Gas limit to pay for on the destination chain
         fn pay_for_gas(
-            ref self: ContractState,
-            _message_id: u256,
-            _destination_domain: u32,
-            _gas_amount: u256,
-            _payment: u256,
-            _refund_address: ContractAddress,
+            ref self: ContractState, _message_id: u256, _destination_domain: u32, _gas_limit: u256,
         ) {
-            assert(_refund_address != contract_address_const::<0>(), Errors::ZERO_REFUND_ADDRESS);
-
-            let required = self.quote_gas_payment(_destination_domain, _gas_amount);
-            assert(_payment >= required, Errors::INSUFFICIENT_PAYMENT);
+            let required = self.quote_gas_payment(_destination_domain, _gas_limit);
 
             let caller = get_caller_address();
-            let gas_token = ERC20ABIDispatcher { contract_address: ETH_ADDRESS() };
-            gas_token.transfer_from(caller, get_contract_address(), _payment);
+            let gas_token = ERC20ABIDispatcher { contract_address: self.fee_token.read() };
+            gas_token.transfer_from(caller, get_contract_address(), required);
 
-            let refund_amount = _payment - required;
-            if refund_amount > 0 {
-                gas_token.transfer( _refund_address, refund_amount);
-                self.emit(GasRefund { refund_address: _refund_address, amount: refund_amount });
-            }
-
-            self.emit(GasPayment { message_id: _message_id, destination_domain: _destination_domain, gas_amount: _gas_amount, payment: required });
+            self
+                .emit(
+                    GasPayment {
+                        message_id: _message_id,
+                        destination_domain: _destination_domain,
+                        gas_limit: _gas_limit,
+                        payment: required,
+                    },
+                );
         }
 
-        /// Quotes gas payment amount for a given destination domain and gas amount.
+        /// Quotes gas payment amount for a given destination domain and gas limit.
         ///
         /// # Arguments
         ///
         /// * `_destination_domain` - Domain ID of the destination chain
-        /// * `_gas_amount` - Amount of gas to quote for on the destination chain
+        /// * `_gas_limit` - Gas limit to quote for on the destination chain
         ///
         /// # Returns
         ///
         /// u256 - Total required payment in native tokens
         fn quote_gas_payment(
-            ref self: ContractState,
-            _destination_domain: u32,
-            _gas_amount: u256,
+            ref self: ContractState, _destination_domain: u32, _gas_limit: u256,
         ) -> u256 {
             let config = self.gas_configs.read(_destination_domain);
-            assert(config.token_exchange_rate != 0, Errors::CONFIG_NOT_FOUND);
-            let total_gas: u256 = _gas_amount + config.gas_overhead;
-            let dest_cost: u256 = total_gas * config.gas_price.into();
+
+            let dest_cost: u256 = _gas_limit * config.gas_price.into();
             (dest_cost * config.token_exchange_rate.into()) / TOKEN_EXCHANGE_RATE_SCALE
         }
 
@@ -254,12 +227,9 @@ pub mod interchain_gas_paymaster {
         /// # Arguments
         ///
         /// * `configs` - Array of GasParam configurations to set
-        fn set_destination_gas_configs(
-            ref self: ContractState,
-            configs: Array<GasParam>
-        ){
+        fn set_destination_gas_configs(ref self: ContractState, configs: Array<GasParam>) {
             self.ownable.assert_only_owner();
-            for config in configs{
+            for config in configs {
                 self._set_destination_gas_config(config.remote_domain, config.config);
             }
         }
@@ -269,37 +239,31 @@ pub mod interchain_gas_paymaster {
         /// # Arguments
         ///
         /// * `beneficiary` - New beneficiary address
-        fn set_beneficiary(
-            ref self: ContractState,
-            beneficiary: ContractAddress
-        ) {
+        fn set_beneficiary(ref self: ContractState, beneficiary: ContractAddress) {
             self.ownable.assert_only_owner();
             self._set_beneficiary(beneficiary)
         }
 
-        /// Allows the beneficiary to claim all collected ETH tokens.
+        /// Claim all collected fee tokens.
         ///
         /// # Returns
         ///
         /// u256 - Amount claimed
         fn claim(ref self: ContractState) -> u256 {
-            let caller = get_caller_address();
             let beneficiary = self.beneficiary.read();
-            
-            assert(caller == beneficiary, Errors::NOT_BENEFICIARY);
-            
-            let gas_token = ERC20ABIDispatcher { contract_address: ETH_ADDRESS() };
+
+            let gas_token = ERC20ABIDispatcher { contract_address: self.fee_token.read() };
             let contract_address = get_contract_address();
             let balance = gas_token.balance_of(contract_address);
-            
+
             if balance > 0 {
                 gas_token.transfer(beneficiary, balance);
-                
+
                 self.emit(TokensClaimed { beneficiary, amount: balance });
-                
+
                 return balance;
             }
-            
+
             0_u256
         }
 
@@ -312,10 +276,7 @@ pub mod interchain_gas_paymaster {
         /// # Returns
         ///
         /// GasConfig - Gas configuration for the specified domain
-        fn get_gas_config(
-            self: @ContractState, 
-            _destination_domain: u32
-        ) -> GasConfig {
+        fn get_gas_config(self: @ContractState, _destination_domain: u32) -> GasConfig {
             self.gas_configs.read(_destination_domain)
         }
 
@@ -331,7 +292,6 @@ pub mod interchain_gas_paymaster {
 
     #[generate_trait]
     impl InternalImpl of InternalTrait {
-
         /// Internal implementation of post_dispatch that processes interchain gas payments.
         ///
         /// # Arguments
@@ -340,23 +300,19 @@ pub mod interchain_gas_paymaster {
         /// * `_message` - The message passed from the Mailbox.dispatch() call
         /// * `_fee_amount` - The payment provided for sending the message
         fn _post_dispatch(
-            ref self: ContractState, _metadata: Bytes, _message: Message, _fee_amount: u256
+            ref self: ContractState, _metadata: Bytes, _message: Message, _fee_amount: u256,
         ) {
+            let config = self.gas_configs.read(_message.destination);
             let (message_id, _) = MessageTrait::format_message(_message.clone());
 
-            let gas_amount_for_destination: u256 = StandardHookMetadata::gas_limit(_metadata.clone(), DEFAULT_GAS_USAGE);
+            let gas_limit_for_destination: u256 = StandardHookMetadata::gas_limit(
+                _metadata.clone(), DEFAULT_GAS_USAGE,
+            )
+                + config.gas_overhead.into();
 
-            let refund_address = get_caller_address();
-
-            self.pay_for_gas(
-                message_id,
-                _message.destination,
-                gas_amount_for_destination,
-                _fee_amount,
-                refund_address
-            );
+            self.pay_for_gas(message_id, _message.destination, gas_limit_for_destination);
         }
-        
+
         /// Sets gas configuration for a destination domain.
         ///
         /// # Arguments
@@ -364,17 +320,20 @@ pub mod interchain_gas_paymaster {
         /// * `_remote_domain` - Domain ID of the destination chain
         /// * `_config` - Gas configuration to set
         fn _set_destination_gas_config(
-            ref self: ContractState,
-            _remote_domain: u32,
-            _config: GasConfig
+            ref self: ContractState, _remote_domain: u32, _config: GasConfig,
         ) {
+            assert(_config.token_exchange_rate != 0, Errors::CONFIG_NOT_FOUND);
+
             self.gas_configs.write(_remote_domain, _config);
-            self.emit(DestinationGasConfigSet {
-                remote_domain: _remote_domain,
-                token_exchange_rate: _config.token_exchange_rate,
-                gas_price: _config.gas_price,
-                gas_overhead: _config.gas_overhead,
-            });
+            self
+                .emit(
+                    DestinationGasConfigSet {
+                        remote_domain: _remote_domain,
+                        token_exchange_rate: _config.token_exchange_rate,
+                        gas_price: _config.gas_price,
+                        gas_overhead: _config.gas_overhead,
+                    },
+                );
         }
 
         /// Sets beneficiary address.
@@ -387,18 +346,5 @@ pub mod interchain_gas_paymaster {
             self.beneficiary.write(_beneficiary);
             self.emit(BeneficiarySet { beneficiary: _beneficiary });
         }
-
     }
-
-    // TODOs
-    // The implementation above provides a complete InterchainGasPaymaster (IGP) for Starknet.
-    // The following items should be addressed before production deployment:
-    //
-    // 1. **Unit & Integration Tests**
-    //    – Add snforge tests mirroring the Solidity & Sealevel test-suites to validate
-    //      `quote_gas_payment`, overflow paths, and metadata edge-cases.
-    //
-    // 2. **Security Audit**
-    //    – Conduct a thorough security audit to ensure the contract handles edge cases
-    //      correctly and is resistant to potential attacks.
 }

@@ -622,7 +622,7 @@ pub fn setup_interchain_gas_paymaster() -> (
     let igp_class = declare("interchain_gas_paymaster").unwrap().contract_class();
     let (igp_addr, _) = igp_class
         .deploy(
-            @array![OWNER().try_into().unwrap(), BENEFICIARY().into()],
+            @array![OWNER().try_into().unwrap(), BENEFICIARY().into(), fee_token.contract_address.into()],
         )
         .unwrap();
 

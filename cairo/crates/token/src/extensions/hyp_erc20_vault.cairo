@@ -354,7 +354,8 @@ mod HypErc20Vault {
     #[abi(embed_v0)]
     impl ERC20VaultImpl of IERC20<ContractState> {
         fn total_supply(self: @ContractState) -> u256 {
-            self.erc20.total_supply()
+            let total_supply = self.erc20.total_supply();
+            self.shares_to_assets(total_supply)
         }
 
         // Overrides ERC20.balance_of()
@@ -366,7 +367,8 @@ mod HypErc20Vault {
         fn allowance(
             self: @ContractState, owner: ContractAddress, spender: ContractAddress,
         ) -> u256 {
-            self.erc20.allowance(owner, spender)
+            let allowance = self.erc20.allowance(owner, spender);
+            self.shares_to_assets(allowance)
         }
         // Overrides ERC20.transfer()
         fn transfer(ref self: ContractState, recipient: ContractAddress, amount: u256) -> bool {
@@ -380,18 +382,21 @@ mod HypErc20Vault {
             recipient: ContractAddress,
             amount: u256,
         ) -> bool {
-            self.erc20.transfer_from(sender, recipient, amount)
+            let shares = self.assets_to_shares(amount);
+            self.erc20.transfer_from(sender, recipient, shares)
         }
 
         fn approve(ref self: ContractState, spender: ContractAddress, amount: u256) -> bool {
-            self.erc20.approve(spender, amount)
+            let shares = self.assets_to_shares(amount);
+            self.erc20.approve(spender, shares)
         }
     }
 
     #[abi(embed_v0)]
     impl ERC20VaultCamelOnlyImpl of IERC20CamelOnly<ContractState> {
         fn totalSupply(self: @ContractState) -> u256 {
-            self.erc20.totalSupply()
+            let total_supply = self.erc20.total_supply();
+            self.shares_to_assets(total_supply)
         }
 
         // Overrides ERC20.balanceOf()

@@ -123,7 +123,7 @@ pub mod RouterComponent {
         ///
         /// * `domain` - A `u32` representing the domain for which the router is being unenrolled.
         fn unenroll_remote_router(ref self: ComponentState<TContractState>, domain: u32) {
-            let mut ownable_comp = get_dep_component_mut!(ref self, Owner);
+            let ownable_comp = get_dep_component!(@self, Owner);
             ownable_comp.assert_only_owner();
 
             self._unenroll_remote_router(domain);

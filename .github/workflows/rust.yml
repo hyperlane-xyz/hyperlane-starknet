@@ -30,7 +30,7 @@ jobs:
 
       - name: Install starknet-devnet
         run: |
-          cargo install starknet-devnet --locked
+          cargo install starknet-devnet --version 0.4.1 --locked
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1

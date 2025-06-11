@@ -8,6 +8,7 @@ use contracts::interfaces::{
     IRoutingIsmDispatcherTrait, ISpecifiesInterchainSecurityModuleDispatcher,
     ISpecifiesInterchainSecurityModuleDispatcherTrait, IValidatorAnnounceDispatcher,
     IValidatorAnnounceDispatcherTrait, IValidatorConfigurationDispatcher,
+    IInterchainGasPaymasterDispatcher,
 };
 use contracts::libs::multisig::merkleroot_ism_metadata::merkleroot_ism_metadata::MERKLE_PROOF_ITERATION;
 use openzeppelin::account::utils::signature::Secp256Signature;
@@ -15,6 +16,11 @@ use openzeppelin::token::erc20::interface::ERC20ABIDispatcher;
 use snforge_std::cheatcodes::contract_class::ContractClass;
 use snforge_std::{ContractClassTrait, DeclareResultTrait, EventSpy, declare, spy_events};
 use starknet::{ContractAddress, EthAddress, contract_address_const};
+use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
+use snforge_std::{CheatSpan, cheat_caller_address};
+use contracts::hooks::interchain_gas_paymaster::interchain_gas_paymaster::{GasConfig, GasParam};
+use contracts::interfaces::IInterchainGasPaymasterDispatcherTrait;
+use contracts::utils::utils::U256TryIntoContractAddress;
 
 pub const LOCAL_DOMAIN: u32 = 534352;
 pub const DESTINATION_DOMAIN: u32 = 9841001;
@@ -604,5 +610,32 @@ pub fn setup_domain_routing_hook() -> (IPostDispatchHookDispatcher, IDomainRouti
         IPostDispatchHookDispatcher { contract_address: domain_routing_hook_addrs },
         IDomainRoutingHookDispatcher { contract_address: domain_routing_hook_addrs },
     )
+}
+
+pub fn setup_interchain_gas_paymaster() -> (
+    IInterchainGasPaymasterDispatcher,
+    IPostDispatchHookDispatcher,
+    ERC20ABIDispatcher,
+) {
+    let fee_token = setup_mock_token();
+
+    let igp_class = declare("interchain_gas_paymaster").unwrap().contract_class();
+    let (igp_addr, _) = igp_class
+        .deploy(
+            @array![OWNER().try_into().unwrap(), BENEFICIARY().into(), fee_token.contract_address.into()],
+        )
+        .unwrap();
+
+    let igp = IInterchainGasPaymasterDispatcher { contract_address: igp_addr };
+    let post_hook = IPostDispatchHookDispatcher { contract_address: igp_addr };
+
+    let gas_config = GasConfig { token_exchange_rate: 10_000_000_000, gas_price: 1_000, gas_overhead: 1_000 };
+    let gas_param = GasParam { remote_domain: DESTINATION_DOMAIN, config: gas_config };
+
+    let ownable = IOwnableDispatcher { contract_address: igp_addr };
+    cheat_caller_address(ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1));
+    igp.set_destination_gas_configs(array![gas_param]);
+
+    (igp, post_hook, fee_token)
 }
 

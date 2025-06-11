@@ -31,6 +31,7 @@ pub mod isms {
 }
 pub mod hooks {
     pub mod domain_routing_hook;
+    pub mod interchain_gas_paymaster;
     pub mod merkle_tree_hook;
     pub mod protocol_fee;
     pub mod libs {

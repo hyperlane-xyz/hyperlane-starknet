@@ -11,7 +11,7 @@ pub mod aggregation_ism_metadata {
     /// * [????:????] Metadata start/end uint32 ranges, packed as uint64
     /// * [????:????] ISM metadata, packed encoding
     /// *
-    const RANGE_SIZE: u8 = 4;
+    pub const RANGE_SIZE: u8 = 4;
     const BYTES_PER_ELEMENT: u8 = 16;
 
     impl AggregationIsmMetadataImpl of AggregationIsmMetadata {
@@ -79,7 +79,7 @@ pub mod aggregation_ism_metadata {
 #[cfg(test)]
 mod test {
     use alexandria_bytes::BytesTrait;
-    use super::aggregation_ism_metadata::AggregationIsmMetadata;
+    use super::aggregation_ism_metadata::{AggregationIsmMetadata, RANGE_SIZE};
 
     #[test]
     fn test_aggregation_ism_metadata() {
@@ -105,9 +105,15 @@ mod test {
     }
 
     #[test]
+    // this metadata is from a test message from e2e between two katana (local) nodes
     fn test_metadata_not_padded() {
+        // 2 * RANGE_SIZE + 133 (68 + 1 * 65 -> messageId metadata size with 1 validator)
+        const AGGREGATION_ISM_METADATA_SIZE: u8 = 2 * RANGE_SIZE + 133;
+        // 9 X 16 (u128 size) = 144 covers AGGREGATION_ISM_METADATA_SIZE
+        const METADATA_U128_CHUNKS: u32 = 9;
+
         let encoded_metadata = BytesTrait::new(
-            141,
+            AGGREGATION_ISM_METADATA_SIZE.try_into().unwrap(),
             array![
                 0x000000080000008d071e1b5e54086bbd,
                 0xe2b7a131a2c913f442485974c32df56e,
@@ -134,7 +140,7 @@ mod test {
         let result = AggregationIsmMetadata::metadata_at(encoded_metadata.clone(), 0);
 
         let mut cur_idx = 0;
-        while (cur_idx != 9) {
+        while (cur_idx != METADATA_U128_CHUNKS) {
             assert(
                 *BytesTrait::data(result.clone())[cur_idx] == *expected_result.at(cur_idx).low,
                 'Agg metadata extract failed',

@@ -290,6 +290,8 @@ pub trait IProtocolFee<TContractState> {
 
     fn set_protocol_fee(ref self: TContractState, _protocol_fee: u256);
 
+    fn get_max_protocol_fee(self: @TContractState) -> u256;
+
     fn get_beneficiary(self: @TContractState) -> ContractAddress;
 
     fn set_beneficiary(ref self: TContractState, _beneficiary: ContractAddress);

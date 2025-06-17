@@ -8,8 +8,14 @@ on:
 jobs:
   integration_test:
     runs-on: ubuntu-latest
+    env:
+      RUST_VERSION: 1.85.0
     steps:
       - uses: actions/checkout@v3
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
 
       # selecting a toolchain either by action or manual `rustup` calls should happen
       # before the plugin, as the cache uses the current rustc version as its cache key

@@ -78,7 +78,7 @@ fn test_set_beneficiary_fails_if_not_owner() {
 
 #[test]
 fn test_collect_protocol_fee() {
-    let fee_token = setup_mock_token();
+    let fee_token = setup_mock_token(Option::Some(ETH_ADDRESS()));
     let (protocol_fee, _) = setup_protocol_fee(Option::None);
     let ownable = IOwnableDispatcher { contract_address: fee_token.contract_address };
     cheat_caller_address(
@@ -96,7 +96,7 @@ fn test_collect_protocol_fee() {
 #[test]
 #[should_panic(expected: ('Insufficient balance',))]
 fn test_collect_protocol_fee_fails_if_insufficient_balance() {
-    setup_mock_token();
+    setup_mock_token(Option::Some(ETH_ADDRESS()));
     let (protocol_fee, _) = setup_protocol_fee(Option::None);
     protocol_fee.collect_protocol_fees();
 }

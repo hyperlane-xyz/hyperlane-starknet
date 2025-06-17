@@ -7,11 +7,12 @@ use openzeppelin::access::ownable::OwnableComponent;
 use openzeppelin::access::ownable::interface::{IOwnableDispatcher, IOwnableDispatcherTrait};
 use openzeppelin::token::erc20::interface::{ERC20ABIDispatcher, ERC20ABIDispatcherTrait};
 use snforge_std::{CheatSpan, EventSpyAssertionsTrait, cheat_caller_address};
+use starknet::contract_address_const;
 use super::setup::{
     DESTINATION_DOMAIN, DESTINATION_MAILBOX, INITIAL_SUPPLY, LOCAL_DOMAIN, MAILBOX,
     NEW_DEFAULT_HOOK, NEW_DEFAULT_ISM, NEW_OWNER, NEW_REQUIRED_HOOK, OWNER, PROTOCOL_FEE,
     RECIPIENT_ADDRESS, mock_setup, setup_mailbox, setup_mock_fee_hook, setup_mock_hook,
-    setup_protocol_fee,
+    setup_mock_token, setup_protocol_fee, setup_protocol_fee_with_token,
 };
 
 
@@ -133,12 +134,51 @@ fn test_set_default_ism_fails_if_not_owner() {
 }
 
 #[test]
-fn test_dispatch() {
+fn test_get_fee_token() {
+    let (mailbox, _, _, _) = setup_mailbox(MAILBOX(), Option::None, Option::None);
+    assert(mailbox.get_fee_token() == ETH_ADDRESS(), 'Wrong initial fee token');
+}
+
+#[test]
+fn test_set_fee_token() {
     let (mailbox, mut spy, _, _) = setup_mailbox(MAILBOX(), Option::None, Option::None);
+    let new_fee_token = setup_mock_token(Option::None);
     let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
     cheat_caller_address(
         ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
     );
+    mailbox.set_fee_token(new_fee_token.contract_address);
+    assert(mailbox.get_fee_token() == new_fee_token.contract_address, 'Failed to set fee token');
+    let expected_event = mailbox::Event::FeeTokenSet(mailbox::FeeTokenSet { token: new_fee_token.contract_address });
+    spy.assert_emitted(@array![(mailbox.contract_address, expected_event)]);
+}
+
+#[test]
+#[should_panic(expected: ('Caller is not the owner',))]
+fn test_set_fee_token_fails_if_not_owner() {
+    let (mailbox, _, _, _) = setup_mailbox(MAILBOX(), Option::None, Option::None);
+    let new_fee_token = setup_mock_token(Option::None);
+    let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
+    cheat_caller_address(
+        ownable.contract_address, NEW_OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    mailbox.set_fee_token(new_fee_token.contract_address);
+}
+
+#[test]
+#[should_panic(expected: ('Fee token cannot be null',))]
+fn test_set_fee_token_fails_if_null() {
+    let (mailbox, _, _, _) = setup_mailbox(MAILBOX(), Option::None, Option::None);
+    let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
+    cheat_caller_address(
+        ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    mailbox.set_fee_token(contract_address_const::<0>());
+}
+
+#[test]
+fn test_dispatch() {
+    let (mailbox, mut spy, _, _) = setup_mailbox(MAILBOX(), Option::None, Option::None);
     let array = array![
         0x01020304050607080910111213141516,
         0x01020304050607080910111213141516,
@@ -253,6 +293,118 @@ fn test_dispatch_with_protocol_fee_hook() {
     assert(mailbox.get_latest_dispatched_id() == message_id, 'Failed to fetch latest id');
 }
 
+#[test]
+fn test_dispatch_with_new_fee_token() {
+    let (_, protocol_fee_hook) = setup_protocol_fee(Option::None);
+    let mock_hook = setup_mock_hook();
+    let (mailbox, mut spy, _, _) = setup_mailbox(
+        MAILBOX(),
+        Option::Some(protocol_fee_hook.contract_address),
+        Option::Some(mock_hook.contract_address),
+    );
+    
+    // Create a new fee token and set it on the mailbox
+    let new_fee_token = setup_mock_token(Option::None);
+    let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
+    cheat_caller_address(
+        ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    mailbox.set_fee_token(new_fee_token.contract_address);
+    
+    // Transfer tokens to owner and approve mailbox
+    let owner_address = OWNER().try_into().unwrap();
+    cheat_caller_address(
+        new_fee_token.contract_address, owner_address, CheatSpan::TargetCalls(2),
+    );
+    new_fee_token.approve(MAILBOX(), PROTOCOL_FEE);
+    
+    // Dispatch message
+    cheat_caller_address(
+        mailbox.contract_address, owner_address, CheatSpan::TargetCalls(1),
+    );
+    let array = array![
+        0x01020304050607080910111213141516,
+        0x01020304050607080910111213141516,
+        0x01020304050607080910000000000000,
+    ];
+
+    let message_body = BytesTrait::new(42, array);
+    let message = Message {
+        version: HYPERLANE_VERSION,
+        nonce: 0,
+        origin: LOCAL_DOMAIN,
+        sender: OWNER(),
+        destination: DESTINATION_DOMAIN,
+        recipient: RECIPIENT_ADDRESS(),
+        body: message_body.clone(),
+    };
+    let (message_id, _) = MessageTrait::format_message(message.clone());
+    mailbox
+        .dispatch(
+            DESTINATION_DOMAIN,
+            RECIPIENT_ADDRESS(),
+            message_body,
+            PROTOCOL_FEE,
+            Option::None,
+            Option::None,
+        );
+    
+    // Verify balance was deducted from the new fee token
+    assert_eq!(
+        new_fee_token.balanceOf(owner_address), INITIAL_SUPPLY - PROTOCOL_FEE,
+    );
+    assert(mailbox.get_latest_dispatched_id() == message_id, 'Failed to fetch latest id');
+}
+
+#[test]
+#[should_panic(expected: ('Insufficient allowance',))]
+fn test_dispatch_with_protocol_fee_hook_mismatched_tokens() {
+    // Test case: mailbox fee token doesn't match protocol fee hook token (should fail)
+    let mailbox_fee_token = setup_mock_token(Option::None);
+    let hook_fee_token = setup_mock_token(Option::None);
+    let (_, protocol_fee_hook) = setup_protocol_fee_with_token(hook_fee_token.contract_address, Option::None);
+    let mock_hook = setup_mock_hook();
+    let (mailbox, _, _, _) = setup_mailbox(
+        MAILBOX(),
+        Option::Some(protocol_fee_hook.contract_address),
+        Option::Some(mock_hook.contract_address),
+    );
+    
+    // Set different fee token on the mailbox
+    let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
+    cheat_caller_address(
+        ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
+    );
+    mailbox.set_fee_token(mailbox_fee_token.contract_address);
+    
+    // Approve mailbox fee token but the hook expects a different token
+    let owner_address = OWNER().try_into().unwrap();
+    cheat_caller_address(
+        mailbox_fee_token.contract_address, owner_address, CheatSpan::TargetCalls(1),
+    );
+    hook_fee_token.approve(MAILBOX(), PROTOCOL_FEE);
+    
+    cheat_caller_address(
+        mailbox.contract_address, owner_address, CheatSpan::TargetCalls(1),
+    );
+    let array = array![
+        0x01020304050607080910111213141516,
+        0x01020304050607080910111213141516,
+        0x01020304050607080910000000000000,
+    ];
+
+    let message_body = BytesTrait::new(42, array);
+    // This should panic because the tokens don't match
+    mailbox
+        .dispatch(
+            DESTINATION_DOMAIN,
+            RECIPIENT_ADDRESS(),
+            message_body,
+            PROTOCOL_FEE,
+            Option::None,
+            Option::None,
+        );
+}
 
 #[test]
 fn test_dispatch_with_two_fee_hook() {

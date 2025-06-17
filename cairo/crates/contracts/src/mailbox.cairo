@@ -2,7 +2,7 @@
 pub mod mailbox {
     use alexandria_bytes::{Bytes, BytesTrait};
     use contracts::interfaces::{
-        ETH_ADDRESS, IInterchainSecurityModuleDispatcher, IInterchainSecurityModuleDispatcherTrait,
+        IInterchainSecurityModuleDispatcher, IInterchainSecurityModuleDispatcherTrait,
         IMailbox, IMessageRecipientDispatcher, IMessageRecipientDispatcherTrait,
         IPostDispatchHookDispatcher, IPostDispatchHookDispatcherTrait,
     };
@@ -56,6 +56,8 @@ pub mod mailbox {
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         upgradeable: UpgradeableComponent::Storage,
+        /// The common token used as fee for both hooks (NOTE: we currently don't support multiple tokens)
+        fee_token: ContractAddress,
     }
 
     #[event]
@@ -64,6 +66,7 @@ pub mod mailbox {
         DefaultIsmSet: DefaultIsmSet,
         DefaultHookSet: DefaultHookSet,
         RequiredHookSet: RequiredHookSet,
+        FeeTokenSet: FeeTokenSet,
         Process: Process,
         ProcessId: ProcessId,
         Dispatch: Dispatch,
@@ -87,6 +90,11 @@ pub mod mailbox {
     #[derive(starknet::Event, Drop)]
     pub struct RequiredHookSet {
         pub hook: ContractAddress,
+    }
+
+    #[derive(starknet::Event, Drop)]
+    pub struct FeeTokenSet {
+        pub token: ContractAddress,
     }
 
     #[derive(starknet::Event, Drop)]
@@ -124,6 +132,7 @@ pub mod mailbox {
         pub const OWNER_CANNOT_BE_NULL: felt252 = 'ISM cannot be null';
         pub const HOOK_CANNOT_BE_NULL: felt252 = 'Hook cannot be null';
         pub const NO_ISM_FOUND: felt252 = 'ISM: no ISM found';
+        pub const FEE_TOKEN_CANNOT_BE_NULL: felt252 = 'Fee token cannot be null';
         pub const NEW_OWNER_IS_ZERO: felt252 = 'Ownable: new owner cannot be 0';
         pub const ALREADY_OWNER: felt252 = 'Ownable: already owner';
         pub const INSUFFICIENT_BALANCE: felt252 = 'Insufficient balance';
@@ -141,15 +150,18 @@ pub mod mailbox {
         _default_ism: ContractAddress,
         _default_hook: ContractAddress,
         _required_hook: ContractAddress,
+        _fee_token: ContractAddress,
     ) {
         assert(_default_ism != contract_address_const::<0>(), Errors::ISM_CANNOT_BE_NULL);
         assert(_default_hook != contract_address_const::<0>(), Errors::HOOK_CANNOT_BE_NULL);
         assert(_required_hook != contract_address_const::<0>(), Errors::HOOK_CANNOT_BE_NULL);
+        assert(_fee_token != contract_address_const::<0>(), Errors::FEE_TOKEN_CANNOT_BE_NULL);
         assert(owner != contract_address_const::<0>(), Errors::OWNER_CANNOT_BE_NULL);
         self.local_domain.write(_local_domain);
         self.default_ism.write(_default_ism);
         self.default_hook.write(_default_hook);
         self.required_hook.write(_required_hook);
+        self.fee_token.write(_fee_token);
         self.ownable.initializer(owner);
     }
 
@@ -316,7 +328,7 @@ pub mod mailbox {
             let caller_address = get_caller_address();
             let contract_address = get_contract_address();
 
-            let token_dispatcher = ERC20ABIDispatcher { contract_address: ETH_ADDRESS() };
+            let token_dispatcher = ERC20ABIDispatcher { contract_address: self.fee_token.read() };
             let user_balance = token_dispatcher.balanceOf(caller_address);
 
             assert(user_balance >= required_fee + default_fee, Errors::INSUFFICIENT_BALANCE);
@@ -504,6 +516,27 @@ pub mod mailbox {
         /// * The number of the block that the message was processed at.
         fn processed_at(self: @ContractState, _id: u256) -> u64 {
             self.deliveries.read(_id).block_number
+        }
+
+        /// Returns the token used as fee for both hooks
+        ///
+        /// # Returns
+        ///
+        /// * The token used as fee for both hooks
+        fn get_fee_token(self: @ContractState) -> ContractAddress {
+            self.fee_token.read()
+        }
+
+        /// Sets the token used as fee for both hooks
+        ///
+        /// # Arguments
+        ///
+        /// * `_fee_token` - The new token used as fee for both hooks
+        fn set_fee_token(ref self: ContractState, _fee_token: ContractAddress) {
+            self.ownable.assert_only_owner();
+            assert(_fee_token != contract_address_const::<0>(), Errors::FEE_TOKEN_CANNOT_BE_NULL);
+            self.fee_token.write(_fee_token);
+            self.emit(Event::FeeTokenSet(FeeTokenSet { token: _fee_token }));
         }
     }
 

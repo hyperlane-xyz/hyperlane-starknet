@@ -54,6 +54,8 @@ pub trait IMailbox<TContractState> {
 
     fn get_latest_dispatched_id(self: @TContractState) -> u256;
 
+    fn get_fee_token(self: @TContractState) -> ContractAddress;
+
     fn dispatch(
         ref self: TContractState,
         _destination_domain: u32,
@@ -86,6 +88,8 @@ pub trait IMailbox<TContractState> {
     fn processor(self: @TContractState, _id: u256) -> ContractAddress;
 
     fn processed_at(self: @TContractState, _id: u256) -> u64;
+
+    fn set_fee_token(ref self: TContractState, _fee_token: ContractAddress);
 }
 
 

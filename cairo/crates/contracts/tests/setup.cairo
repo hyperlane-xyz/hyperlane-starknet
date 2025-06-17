@@ -161,13 +161,14 @@ pub fn setup_mailbox(
         Option::None => { required_hook },
     };
     let mock_ism = setup_mock_ism();
-    setup_mock_token();
+    setup_mock_token(Option::Some(ETH_ADDRESS()));
     let params: Array<felt252> = array![
         domain.into(),
         OWNER().try_into().unwrap(),
         mock_ism.contract_address.into(),
         default_hook.into(),
         required_hook.into(),
+        ETH_ADDRESS().into(),
     ];
     mailbox_class.deploy_at(@params, mailbox_address).unwrap();
     let mut spy = spy_events();
@@ -549,20 +550,42 @@ pub fn get_merkle_message_and_signature() -> (u256, Array<felt252>, Array<Secp25
     (msg_hash, validators_array, signatures)
 }
 
-pub fn setup_mock_token() -> ERC20ABIDispatcher {
+pub fn setup_mock_token(contract_address: Option::<ContractAddress>) -> ERC20ABIDispatcher {
     let fee_token_class = declare("mock_fee_token").unwrap().contract_class();
-    let (fee_token_addr, _) = fee_token_class
-        .deploy_at(
-            @array![
-                INITIAL_SUPPLY.low.into(), INITIAL_SUPPLY.high.into(), OWNER().try_into().unwrap(),
-            ],
-            ETH_ADDRESS(),
-        )
-        .unwrap();
+    let fee_token_addr = match contract_address {
+        Option::None => {
+            let (addr, _) = fee_token_class
+                .deploy(
+                    @array![
+                        INITIAL_SUPPLY.low.into(), INITIAL_SUPPLY.high.into(), OWNER().try_into().unwrap(),
+                    ],
+                )
+                .unwrap();
+            addr
+        },
+        Option::Some(addr) => {
+            let (deployed_addr, _) = fee_token_class
+                .deploy_at(
+                    @array![
+                        INITIAL_SUPPLY.low.into(), INITIAL_SUPPLY.high.into(), OWNER().try_into().unwrap(),
+                    ],
+                    addr,
+                )
+                .unwrap();
+            deployed_addr
+        },
+    };
     ERC20ABIDispatcher { contract_address: fee_token_addr }
 }
 
 pub fn setup_protocol_fee(
+    class_hash: Option::<ContractClass>,
+) -> (IProtocolFeeDispatcher, IPostDispatchHookDispatcher) {
+    setup_protocol_fee_with_token(ETH_ADDRESS(), class_hash)
+}
+
+pub fn setup_protocol_fee_with_token(
+    fee_token: ContractAddress,
     class_hash: Option::<ContractClass>,
 ) -> (IProtocolFeeDispatcher, IPostDispatchHookDispatcher) {
     let protocol_fee_class = match class_hash {
@@ -578,7 +601,7 @@ pub fn setup_protocol_fee(
                 PROTOCOL_FEE.high.into(),
                 BENEFICIARY().into(),
                 OWNER().try_into().unwrap(),
-                ETH_ADDRESS().into(),
+                fee_token.into(),
             ],
         )
         .unwrap();

@@ -1,5 +1,6 @@
 use starknet::ContractAddress;
 
 pub fn FEE_TOKEN() -> ContractAddress {
-    0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D.try_into().unwrap()
+    // GENERATED CODE - DO NOT EDIT
+    0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d.try_into().unwrap()
 }

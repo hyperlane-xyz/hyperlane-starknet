@@ -38,7 +38,7 @@ starknet = "0.14.0"
 [dev-dependencies]
 # starknet
 cainome = { version = "0.6.0", features = [
-    "abigen-rs",    
+    "abigen-rs",
 ] }
 starknet = "0.14.0"
 cairo-lang-starknet-classes = "2.10.1"

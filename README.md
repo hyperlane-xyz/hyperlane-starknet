@@ -48,6 +48,7 @@ See the [contracts README](contracts/README.md) for more information.
 ### Pre-requisites
 - Install Scarb (see [here](https://docs.swmansion.com/scarb/download)) version `2.10.1` (e.g. with `asdf install scarb 2.10.1`)
 - Install Starknet Foundry (see [here](https://github.com/foundry-rs/starknet-foundry)) version `0.38.3` (e.g. with `asdf install starknet-foundry 0.38.3`)
+- Install `starknet-devnet` with `cargo install starknet-devnet --locked`
 
 ### Build
 
@@ -83,17 +84,17 @@ cd contracts && scarb build && cd -
 
 Open another terminal, start a new Katana instance: 
 ```bash
- katana -b 1000 &
- ```
+starknet-devnet --seed 0 &
+```
 
 Run evm -> strk messaging test on the first terminal: 
- ```bash
- cd rust && cargo test -- test_mailbox_evm_to_strk
- ```
+```bash
+cd rust && cargo test -- test_mailbox_evm_to_strk
+```
 
 Once the test passed, kill the katana instance: 
 ```bash
-pkill katana
+pkill starknet-devnet
 ```
 
 Restart another instance for the second test (strk -> evm): 

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-FILEPATH="crates/contracts/src/fee_token.cairo"
+FILEPATH="src/fee_token.cairo"
 TEMPFILE=$(mktemp)
 
 # writes all but the last 2 lines to the temp file

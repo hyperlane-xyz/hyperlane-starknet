@@ -2,9 +2,9 @@
 pub mod mailbox {
     use alexandria_bytes::{Bytes, BytesTrait};
     use contracts::interfaces::{
-        IInterchainSecurityModuleDispatcher, IInterchainSecurityModuleDispatcherTrait,
-        IMailbox, IMessageRecipientDispatcher, IMessageRecipientDispatcherTrait,
-        IPostDispatchHookDispatcher, IPostDispatchHookDispatcherTrait,
+        IInterchainSecurityModuleDispatcher, IInterchainSecurityModuleDispatcherTrait, IMailbox,
+        IMessageRecipientDispatcher, IMessageRecipientDispatcherTrait, IPostDispatchHookDispatcher,
+        IPostDispatchHookDispatcherTrait,
     };
     use contracts::libs::message::{HYPERLANE_VERSION, Message, MessageTrait};
     use contracts::utils::utils::U256TryIntoContractAddress;
@@ -56,7 +56,8 @@ pub mod mailbox {
         ownable: OwnableComponent::Storage,
         #[substorage(v0)]
         upgradeable: UpgradeableComponent::Storage,
-        /// The common token used as fee for both hooks (NOTE: we currently don't support multiple tokens)
+        /// The common token used as fee for both hooks (NOTE: we currently don't support multiple
+        /// tokens)
         fee_token: ContractAddress,
     }
 

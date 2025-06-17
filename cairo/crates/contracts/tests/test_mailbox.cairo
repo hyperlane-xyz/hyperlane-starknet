@@ -149,7 +149,9 @@ fn test_set_fee_token() {
     );
     mailbox.set_fee_token(new_fee_token.contract_address);
     assert(mailbox.get_fee_token() == new_fee_token.contract_address, 'Failed to set fee token');
-    let expected_event = mailbox::Event::FeeTokenSet(mailbox::FeeTokenSet { token: new_fee_token.contract_address });
+    let expected_event = mailbox::Event::FeeTokenSet(
+        mailbox::FeeTokenSet { token: new_fee_token.contract_address },
+    );
     spy.assert_emitted(@array![(mailbox.contract_address, expected_event)]);
 }
 
@@ -302,7 +304,7 @@ fn test_dispatch_with_new_fee_token() {
         Option::Some(protocol_fee_hook.contract_address),
         Option::Some(mock_hook.contract_address),
     );
-    
+
     // Create a new fee token and set it on the mailbox
     let new_fee_token = setup_mock_token(Option::None);
     let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
@@ -310,18 +312,14 @@ fn test_dispatch_with_new_fee_token() {
         ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
     );
     mailbox.set_fee_token(new_fee_token.contract_address);
-    
+
     // Transfer tokens to owner and approve mailbox
     let owner_address = OWNER().try_into().unwrap();
-    cheat_caller_address(
-        new_fee_token.contract_address, owner_address, CheatSpan::TargetCalls(2),
-    );
+    cheat_caller_address(new_fee_token.contract_address, owner_address, CheatSpan::TargetCalls(2));
     new_fee_token.approve(MAILBOX(), PROTOCOL_FEE);
-    
+
     // Dispatch message
-    cheat_caller_address(
-        mailbox.contract_address, owner_address, CheatSpan::TargetCalls(1),
-    );
+    cheat_caller_address(mailbox.contract_address, owner_address, CheatSpan::TargetCalls(1));
     let array = array![
         0x01020304050607080910111213141516,
         0x01020304050607080910111213141516,
@@ -348,11 +346,9 @@ fn test_dispatch_with_new_fee_token() {
             Option::None,
             Option::None,
         );
-    
+
     // Verify balance was deducted from the new fee token
-    assert_eq!(
-        new_fee_token.balanceOf(owner_address), INITIAL_SUPPLY - PROTOCOL_FEE,
-    );
+    assert_eq!(new_fee_token.balanceOf(owner_address), INITIAL_SUPPLY - PROTOCOL_FEE);
     assert(mailbox.get_latest_dispatched_id() == message_id, 'Failed to fetch latest id');
 }
 
@@ -362,31 +358,31 @@ fn test_dispatch_with_protocol_fee_hook_mismatched_tokens() {
     // Test case: mailbox fee token doesn't match protocol fee hook token (should fail)
     let mailbox_fee_token = setup_mock_token(Option::None);
     let hook_fee_token = setup_mock_token(Option::None);
-    let (_, protocol_fee_hook) = setup_protocol_fee_with_token(hook_fee_token.contract_address, Option::None);
+    let (_, protocol_fee_hook) = setup_protocol_fee_with_token(
+        hook_fee_token.contract_address, Option::None,
+    );
     let mock_hook = setup_mock_hook();
     let (mailbox, _, _, _) = setup_mailbox(
         MAILBOX(),
         Option::Some(protocol_fee_hook.contract_address),
         Option::Some(mock_hook.contract_address),
     );
-    
+
     // Set different fee token on the mailbox
     let ownable = IOwnableDispatcher { contract_address: mailbox.contract_address };
     cheat_caller_address(
         ownable.contract_address, OWNER().try_into().unwrap(), CheatSpan::TargetCalls(1),
     );
     mailbox.set_fee_token(mailbox_fee_token.contract_address);
-    
+
     // Approve mailbox fee token but the hook expects a different token
     let owner_address = OWNER().try_into().unwrap();
     cheat_caller_address(
         mailbox_fee_token.contract_address, owner_address, CheatSpan::TargetCalls(1),
     );
     hook_fee_token.approve(MAILBOX(), PROTOCOL_FEE);
-    
-    cheat_caller_address(
-        mailbox.contract_address, owner_address, CheatSpan::TargetCalls(1),
-    );
+
+    cheat_caller_address(mailbox.contract_address, owner_address, CheatSpan::TargetCalls(1));
     let array = array![
         0x01020304050607080910111213141516,
         0x01020304050607080910111213141516,

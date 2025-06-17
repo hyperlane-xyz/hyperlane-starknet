@@ -557,7 +557,9 @@ pub fn setup_mock_token(contract_address: Option::<ContractAddress>) -> ERC20ABI
             let (addr, _) = fee_token_class
                 .deploy(
                     @array![
-                        INITIAL_SUPPLY.low.into(), INITIAL_SUPPLY.high.into(), OWNER().try_into().unwrap(),
+                        INITIAL_SUPPLY.low.into(),
+                        INITIAL_SUPPLY.high.into(),
+                        OWNER().try_into().unwrap(),
                     ],
                 )
                 .unwrap();
@@ -567,7 +569,9 @@ pub fn setup_mock_token(contract_address: Option::<ContractAddress>) -> ERC20ABI
             let (deployed_addr, _) = fee_token_class
                 .deploy_at(
                     @array![
-                        INITIAL_SUPPLY.low.into(), INITIAL_SUPPLY.high.into(), OWNER().try_into().unwrap(),
+                        INITIAL_SUPPLY.low.into(),
+                        INITIAL_SUPPLY.high.into(),
+                        OWNER().try_into().unwrap(),
                     ],
                     addr,
                 )
@@ -585,8 +589,7 @@ pub fn setup_protocol_fee(
 }
 
 pub fn setup_protocol_fee_with_token(
-    fee_token: ContractAddress,
-    class_hash: Option::<ContractClass>,
+    fee_token: ContractAddress, class_hash: Option::<ContractClass>,
 ) -> (IProtocolFeeDispatcher, IPostDispatchHookDispatcher) {
     let protocol_fee_class = match class_hash {
         Option::Some(hash) => hash,

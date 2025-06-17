@@ -46,8 +46,8 @@ It uses `Starknet Foundry` for tests.
 See the [contracts README](contracts/README.md) for more information.
 
 ### Pre-requisites
-- Install Scarb (see [here](https://docs.swmansion.com/scarb/download))
-- Install Starknet Foundry (see [here](https://github.com/foundry-rs/starknet-foundry))
+- Install Scarb (see [here](https://docs.swmansion.com/scarb/download)) version `2.10.1` (e.g. with `asdf install scarb 2.10.1`)
+- Install Starknet Foundry (see [here](https://github.com/foundry-rs/starknet-foundry)) version `0.38.3` (e.g. with `asdf install starknet-foundry 0.38.3`)
 
 ### Build
 

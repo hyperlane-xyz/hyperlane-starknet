@@ -1,4 +1,5 @@
 use alexandria_bytes::Bytes;
+use contracts::fee_token::FEE_TOKEN;
 use contracts::hooks::merkle_tree_hook::merkle_tree_hook::Tree;
 use contracts::libs::message::Message;
 use core::array::ArrayTrait;
@@ -6,7 +7,7 @@ use starknet::ContractAddress;
 use starknet::EthAddress;
 
 pub fn ETH_ADDRESS() -> ContractAddress {
-    0x049D36570D4e46f48e99674bd3fcc84644DdD6b96F7C741B1562B82f9e004dC7.try_into().unwrap()
+    FEE_TOKEN()
 }
 
 #[derive(Serde, Drop, Debug, PartialEq)]

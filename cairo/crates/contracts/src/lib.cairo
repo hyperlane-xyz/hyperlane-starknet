@@ -1,3 +1,4 @@
+pub mod fee_token;
 pub mod interfaces;
 pub mod mailbox;
 pub mod libs {
